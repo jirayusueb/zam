@@ -32,6 +32,7 @@
     "@zam/db": "workspace:*",
     "@zam/ui": "workspace:*",
     "better-auth": "catalog:",
+    "fscreen": "^1.2.0",
     "lucide-react": "catalog:",
     "motion": "^13.4.6",
     "next-themes": "catalog:",
