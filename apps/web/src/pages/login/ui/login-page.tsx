@@ -1,3 +1,5 @@
+import { Link } from "@tanstack/react-router";
+
 import { GoogleSignInButton } from "@/features/sign-in-with-google";
 
 /** `redirect` must already be a validated same-origin path (the route's search schema does this). */
@@ -17,6 +19,16 @@ export const LoginPage = ({ redirect }: { redirect?: string }) => (
         callbackURL={redirect}
         className="[view-transition-name:sign-in-cta]"
       />
+      <p className="text-muted-foreground text-xs">
+        How Zam uses your Google account and data is in the{" "}
+        <Link
+          className="decoration-foreground/30 hover:text-foreground underline underline-offset-4"
+          to="/privacy-policy"
+        >
+          privacy policy
+        </Link>
+        .
+      </p>
     </div>
   </main>
 );

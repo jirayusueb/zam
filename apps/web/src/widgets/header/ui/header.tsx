@@ -23,6 +23,13 @@ export const Header = () => {
         />
       </Link>
       <nav aria-label="Main" className="flex items-center gap-1">
+        <Link
+          activeProps={{ className: "text-foreground" }}
+          className="text-muted-foreground hover:text-foreground ease-intent rounded-lg px-3 py-2 text-sm transition-colors duration-500"
+          to="/docs/install-extension"
+        >
+          Get the extension
+        </Link>
         {session ? (
           <Link
             activeProps={{ className: "text-foreground" }}
