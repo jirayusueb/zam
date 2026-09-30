@@ -27,6 +27,13 @@ export const startScreenRecording =
       if (error instanceof Error && error.name === "NotAllowedError") {
         return null;
       }
+      // macOS reports a missing Screen Recording permission this way.
+      if (error instanceof Error && error.name === "NotReadableError") {
+        throw new Error(
+          "Could not start the screen capture. On macOS, allow your browser under System Settings → Privacy & Security → Screen & System Audio Recording, then restart it.",
+          { cause: error }
+        );
+      }
       throw error;
     }
 

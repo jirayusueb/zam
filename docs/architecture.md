@@ -61,6 +61,7 @@ flowchart LR
 | Domain policies | `redactUrl`, `assertValidDevtools` | Pure functions; no domain service needed (no rule spans aggregates) |
 | Repository (write side) | `BugReportRepository { save, findById }`, `CommentRepository { save, findById }` | Domain port; loads/saves the whole aggregate |
 | Read model (query side) | `BugReportReadModel { searchSummariesByReporter, findSharedById, findVideoLocation }`, `CommentReadModel { listByReport }` | Application port returning DTOs straight from storage (§5) |
+| Data mapper | `bugReportMapper`, `commentMapper` (`infrastructure/drizzle/mappers/`) | `toDomain` / `toPersistence` for repositories, `toSharedRecord` / `toSummary` / `toView` for read models; the only code that knows both a table row and a domain/DTO shape |
 | Application services | Commands `draftBugReport`, `publishBugReport`, `postComment`; queries `listMyBugReports`, `viewSharedBugReport`, `listReportComments` | Orchestrate ports; hold no business rules |
 | Domain errors | `CaptureDomainError` codes | Translated to transport errors only in the oRPC adapter |
 | Domain events | None | §5 |
@@ -161,6 +162,7 @@ Coupling reduction:
 | Ports & adapters (`BugReportRepository`, `BugReportReadModel`, `VideoStorage`, `GoogleAccessTokens`) | Domain/application from Drizzle, Drive, Better Auth | `no-restricted-imports` overrides (Step 4) |
 | Single composition root `apps/web/src/shared/api/server/services.ts` | Every other module from concrete adapters | Override on `packages/api/src/**` (Step 6) |
 | Boundary DTOs (`BugReportSummary`, `SharedBugReportView`) | UI and public page from the aggregate's shape | Queries may not import the aggregate (Step 4) |
+| Data mappers (`infrastructure/drizzle/mappers/`) | Adapters from row↔domain translation; aggregates from table shape (the entity is never passed straight to Drizzle) | Convention |
 | One error-translation middleware (`captureErrors`) | Clients from domain exception types | Single oRPC middleware |
 | Type-only contract import in the extension | Extension runtime from server code | `import type` + `typescript/consistent-type-imports` |
 | Shared kernel restricted to `@zam/capture/domain` | Extension from application/infrastructure/db/auth | Extension overrides (Step 7) |

@@ -7,9 +7,8 @@ import type {
   CommentReadModel,
   CommentView,
 } from "../../application/ports/comment-read-model";
-import { parseCommentId } from "../../domain/value-objects/comment-id";
 import type { ReportId } from "../../domain/value-objects/report-id";
-import { unwrap } from "../../shared/result";
+import { commentMapper } from "./mappers/comment-mapper";
 
 export const createDrizzleCommentReadModel = (
   db: Database
@@ -28,13 +27,6 @@ export const createDrizzleCommentReadModel = (
       .innerJoin(user, eq(user.id, comment.authorId))
       .where(eq(comment.reportId, reportId))
       .orderBy(asc(comment.createdAt), asc(comment.id));
-    return rows.map((row) => ({
-      author: { image: row.authorImage, name: row.authorName },
-      body: row.body,
-      createdAt: row.createdAt,
-      id: unwrap(parseCommentId(row.id)),
-      parentId:
-        row.parentId === null ? null : unwrap(parseCommentId(row.parentId)),
-    }));
+    return rows.map(commentMapper.toView);
   },
 });

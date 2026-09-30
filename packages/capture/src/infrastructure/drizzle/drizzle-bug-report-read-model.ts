@@ -24,14 +24,13 @@ import type {
   BugReportCriterion,
   BugReportOrder,
 } from "../../application/query-specifications/bug-report-query";
-import type { BugReportStatus } from "../../domain/entities/bug-report";
-import { parseReportId } from "../../domain/value-objects/report-id";
 import type { ReportId } from "../../domain/value-objects/report-id";
 import { parseReporterId } from "../../domain/value-objects/reporter-id";
 import { none, some } from "../../shared/option";
 import type { Option } from "../../shared/option";
 import { translateCriteria } from "../../shared/query-specification";
 import { unwrap } from "../../shared/result";
+import { bugReportMapper } from "./mappers/bug-report-mapper";
 
 // Must match the config of the generated `search_tsv` column.
 const TEXT_SEARCH_CONFIG = sql.raw("'english'");
@@ -86,9 +85,6 @@ const orderBy = (order: BugReportOrder): SQL[] => {
   }
 };
 
-const statusOf = (videoFileId: string | null): BugReportStatus =>
-  videoFileId === null ? "draft" : "published";
-
 export const createDrizzleBugReportReadModel = (
   db: Database
 ): BugReportReadModel => ({
@@ -100,21 +96,7 @@ export const createDrizzleBugReportReadModel = (
       .from(bugReport)
       .where(eq(bugReport.id, id))
       .limit(1);
-    if (!row) {
-      return none;
-    }
-    return some({
-      createdAt: row.createdAt,
-      devtools: { console: row.consoleEntries, network: row.networkRequests },
-      pageUrl: row.pageUrl,
-      recording: {
-        durationMs: row.videoDurationMs,
-        startedAt: row.recordingStartedAt,
-      },
-      reportId: unwrap(parseReportId(row.id)),
-      status: statusOf(row.videoFileId),
-      title: row.title,
-    });
+    return row ? some(bugReportMapper.toSharedRecord(row)) : none;
   },
 
   findVideoLocation: async (id: ReportId): Promise<Option<VideoLocation>> => {
@@ -154,14 +136,7 @@ export const createDrizzleBugReportReadModel = (
       db.select({ total: count() }).from(bugReport).where(where),
     ]);
     return {
-      items: rows.map((row) => ({
-        createdAt: row.createdAt,
-        durationMs: row.videoDurationMs,
-        id: unwrap(parseReportId(row.id)),
-        pageUrl: row.pageUrl,
-        status: statusOf(row.videoFileId),
-        title: row.title,
-      })),
+      items: rows.map(bugReportMapper.toSummary),
       total: counted?.total ?? 0,
     };
   },

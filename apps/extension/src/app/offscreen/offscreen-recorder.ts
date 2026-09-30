@@ -38,6 +38,20 @@ export const registerOffscreenRecorder = (): void => {
     await sendExtensionMessage(resultMessage);
   };
 
+  const runRecordingReportingErrors = async (): Promise<void> => {
+    try {
+      await runRecording();
+    } catch (error) {
+      active = null;
+      // Unreported, the session stays "selecting"/"recording" and blocks every later capture.
+      await sendExtensionMessage({
+        message: error instanceof Error ? error.message : "Recording failed",
+        reportId: null,
+        type: "report:failed",
+      });
+    }
+  };
+
   browser.runtime.onMessage.addListener((message) => {
     if (!isExtensionMessage(message)) {
       return;
@@ -46,7 +60,7 @@ export const registerOffscreenRecorder = (): void => {
       if (active) {
         return;
       }
-      void runRecording();
+      void runRecordingReportingErrors();
     } else if (message.type === "recorder:stop") {
       active?.stop();
     }

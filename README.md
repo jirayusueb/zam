@@ -1,136 +1,105 @@
 # zam
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Start, Self, ORPC, and more.
+Jam-style bug capture. A reporter records a screen, window, or tab from the browser extension; engineers get one link (`/r/<reportId>`) with the video plus the page's console and network activity from the recording window.
 
-## Features
+Videos are stored in the reporter's own Google Drive. Zam stores only report metadata and devtools evidence, never video bytes.
 
-- **TypeScript** - For type safety and improved developer experience
-- **TanStack Start** - SSR framework with TanStack Router
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
-- **oRPC** - End-to-end type-safe APIs with OpenAPI integration
-- **Drizzle** - TypeScript-first ORM
-- **PostgreSQL** - Database engine
-- **Authentication** - Better-Auth
-- **Oxlint** - Oxlint + Oxfmt (linting & formatting)
-- **Vite+** - Unified Vite toolchain, workspace task runner, linting, and formatting
+- **Capture:** Chrome/Firefox extension records video and collects console entries (calls, uncaught errors, rejections) and fetch/XHR requests (method, redacted URL, status, duration).
+- **Share:** reports go `draft` → `published`; the unguessable report UUID in the link is the access capability.
+- **Sign-in:** Google OAuth via Better Auth; Drive access is required to store the video.
 
-## Getting Started
+Product context lives in [`PRODUCT.md`](PRODUCT.md); domain model and vocabulary in [`docs/architecture.md`](docs/architecture.md).
 
-First, install the dependencies:
+## Stack
+
+TanStack Start (React) on Cloudflare Workers · oRPC · Drizzle + Neon Postgres · Better Auth · WXT extension · shadcn/ui + Tailwind · Alchemy (infra) · Varlock (env) · Vite+ · Oxlint/Oxfmt via Ultracite.
+
+## Layout
+
+```
+apps/
+  web/         Report viewer + auth (TanStack Start)
+  extension/   Capture agent (WXT, Chrome + Firefox)
+packages/
+  capture/     Core domain: report model, devtools evidence, use cases
+  api/         oRPC routers
+  auth/        Better Auth config
+  db/          Drizzle schema + migrations
+  ui/          Shared shadcn/ui primitives and design tokens
+  infra/       Alchemy stack (Cloudflare Worker + Neon)
+  config/      Shared TS config
+```
+
+## Development
 
 ```bash
 bun install
-```
-
-## Database Setup
-
-Alchemy provisions Neon, passes its connection credentials directly to the deployed application, and manages database deployment in the same stack as the consuming app. You do not need to copy a hosted `DATABASE_URL` into the app environment.
-
-Generate and commit migration SQL with `bun run db:generate`. Deployment applies checked-in migrations after provisioning the database.
-
-Then, run the development server:
-
-```bash
+cd packages/infra && bunx alchemy profile edit   # once: pick Cloudflare + Neon profiles
 bun run dev
 ```
 
-Open [http://localhost:3010](http://localhost:3010) in your browser to see the fullstack application.
+- Web: <http://localhost:3010>. Alchemy provisions Neon and injects `DATABASE_URL`; no manual database setup.
+- Extension: WXT dev server on port 5555. Requires `WXT_WEB_URL` (e.g. `http://localhost:3010`) in `apps/extension/.env`.
+- Web env: fill `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` in an ignored env file next to `apps/web/.env.schema`.
 
-## UI Customization
+### Environment
 
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
+Each app owns its schema in `.env.schema`; Varlock generates `src/env.ts` on install. After editing a schema run `bun run env:generate`. Bun's automatic `.env` loading is disabled (`bunfig.toml`), so run Varlock-backed tools from the owning app's directory.
 
-- Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/web/components.json`
+### Database
 
-### Add more shared components
-
-Run this from the project root to add more primitives to the shared UI package:
+Generate and commit migration SQL after schema changes:
 
 ```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
+bun run db:generate
 ```
 
-Import shared components like this:
+Deploys apply checked-in migrations. `db:push`, `db:migrate`, and `db:studio` are available for local work.
+
+### UI
+
+Tokens and global styles: `packages/ui/src/styles/globals.css` (shared by both apps). Add shared primitives from the repo root:
+
+```bash
+npx shadcn@latest add dialog -c packages/ui
+```
 
 ```tsx
 import { Button } from "@zam/ui/components/button";
 ```
 
-### Add app-specific blocks
+Run the shadcn CLI from `apps/web` for app-specific blocks.
 
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/web`.
+## Scripts
 
-## Environment Configuration
+| Script                       | Does                                         |
+| ---------------------------- | -------------------------------------------- |
+| `bun run dev`                | All apps in dev mode                         |
+| `bun run dev:web`            | Web only, without Alchemy                    |
+| `bun run build`              | Build everything                             |
+| `bun run check-types`        | Typecheck the workspace                      |
+| `bun run check` / `fix`      | Ultracite lint + format check / autofix      |
+| `bun run db:*`               | `generate`, `migrate`, `push`, `studio`      |
+| `bun run deploy` / `destroy` | Alchemy stack for the current stage          |
+| `bun run release`            | Version bump, changelog, tag, GitHub release |
 
-Each app owns its environment schema in `.env.schema`. Varlock generates `src/env.ts` during installation; run `bun run env:generate` after changing a schema. Commit schemas, and keep secrets in ignored env files or your deployment platform.
-
-Import the generated `ENV` accessor in application code. Shared database and auth packages receive configuration or initialized clients from the application. See [Varlock's monorepo guide](https://varlock.dev/guides/monorepos/).
-
-For Cloudflare, Alchemy loads and validates deployment inputs with `varlock/auto-load` in its Node/Bun deployment process. Worker code reads native bindings; web clients use the framework's public env API through `src/env.public.ts` where needed. Alchemy supplies resource URLs and managed database credentials. In-Worker Varlock protections are deferred until an official Alchemy integration is available; see [the non-Wrangler deployment guidance](https://varlock.dev/integrations/cloudflare/#non-wrangler-deploy-tools-alchemy-sst-pulumi).
-
-Bun's automatic env loading is disabled in `bunfig.toml`; the framework integration or server bootstrap loads Varlock. Node deployments must include Varlock and its dependencies alongside the app schema.
-
-Run standalone Node/Bun tools that use Varlock from the owning app directory so they load that app's schema and env files. `env:generate` only generates TypeScript files; it does not initialize environment values in a subsequent command.
+Domain tests: `cd packages/capture && bun test`.
 
 ## Deployment
 
-### Alchemy
-
-- Target: web on Cloudflare
-- Configure provider accounts: `cd packages/infra && bunx alchemy profile edit`
-- Dev: bun run dev
-- Deploy: bun run deploy
-- Destroy: bun run destroy
-
-`alchemy profile edit` stores the selected Axiom, Cloudflare, Neon, PlanetScale, and/or Prisma provider profiles under `~/.alchemy`; no provider-specific setup command is required by this scaffold.
-
-Deploys are staged and default to a personal `dev_<username>` stage. For production, run the deploy with an explicit stage from `packages/infra`:
+`bun run deploy` targets a personal `dev_<username>` stage. Production:
 
 ```bash
 cd packages/infra && bunx alchemy deploy --stage production
 ```
 
-### Release & CI
+### Release
 
-Commits must follow [Conventional Commits](https://www.conventionalcommits.org) (enforced by commitlint in the `commit-msg` hook and on PRs).
+Commits follow [Conventional Commits](https://www.conventionalcommits.org) (commitlint in the `commit-msg` hook and on PRs).
 
-`bun run release` (needs `GITHUB_TOKEN`) bumps the version, updates `CHANGELOG.md`, tags `vX.Y.Z`, and creates a GitHub release. Pushing the tag triggers `.github/workflows/deploy.yml`, which deploys the `production` stage. It can also be run manually from the Actions tab.
+Release from GitHub: **Actions → Release → Run workflow** (bump: `auto` from commits, or `patch`/`minor`/`major`). It runs release-it in CI to bump the version (including `apps/extension/package.json`), update `CHANGELOG.md`, tag `vX.Y.Z`, and create the GitHub release, then calls:
 
-Add these secrets to the `production` GitHub environment: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `NEON_API_KEY`, `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
+- `.github/workflows/release-extension.yml`: builds Chrome and Firefox zips and attaches them to the release.
+- `.github/workflows/deploy.yml`: deploys the `production` stage (also runnable on its own).
 
-The same tag triggers `.github/workflows/release-extension.yml`, which builds the Chrome and Firefox zips and attaches them to the GitHub release. release-it keeps `apps/extension/package.json` at the same version. Set `WXT_WEB_URL` (the production web URL) as a variable in the `production` environment.
-
-## Git Hooks and Formatting
-
-- Run checks: `bun run check`
-
-## Project Structure
-
-```
-zam/
-├── apps/
-│   └── web/         # Fullstack application (React + TanStack Start)
-├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
-│   ├── api/         # API layer / business logic
-│   ├── auth/        # Authentication configuration & logic
-│   └── db/          # Database schema & queries
-```
-
-## Available Scripts
-
-- `bun run dev`: Start all applications in development mode
-- `bun run build`: Build all applications
-- `bun run dev:web`: Start only the web application
-- `bun run check-types`: Check TypeScript types across all apps
-- `bun run db:push`: Push schema changes to database
-- `bun run db:generate`: Generate database client/types
-- `bun run db:migrate`: Run database migrations
-- `bun run db:studio`: Open database studio UI
-- `bun run check`: Run Vite+ format/lint checks and workspace TypeScript checks
-- `bun run lint`: Run Vite+ lint checks
-- `bun run format`: Run Vite+ formatting
-- `bun run staged`: Run Vite+ checks against staged files
+The `production` GitHub environment needs secrets `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `NEON_API_KEY`, `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and variable `WXT_WEB_URL` (production web URL).
