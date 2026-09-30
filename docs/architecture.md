@@ -23,8 +23,11 @@ Ubiquitous language (code names are binding):
 | Recording | Metadata of the captured video: mime type, size, duration, start time | `VideoRecording` |
 | Stored video | The video file persisted in the reporter's Google Drive | `StoredVideo { fileId }` |
 | Devtools snapshot | Console entries + network requests captured during the recording window | `DevtoolsSnapshot` |
+| Storage snapshot | Tab's cookies, localStorage, sessionStorage at the moment the recording stopped (top frame only) | `StorageSnapshot { cookies: StoredCookie[], localStorage/sessionStorage: StorageItem[] }` |
+| User step | One reporter action during the recording window: click (element descriptor, never typed text), navigation (redacted URL), tab visibility | `UserStep { kind, detail, timestamp }` |
+| Client environment | Reporter's browser, OS, viewport/screen, language, time zone, network connection at stop; `null` on older reports | `ClientEnvironment` |
 | Console entry | One console call or uncaught error/rejection | `ConsoleEntry` |
-| Network request | One fetch/XHR: method, redacted URL, status (0 = failed), duration | `NetworkRequest` |
+| Network request | One fetch/XHR: method, redacted URL, status (0 = failed), duration, request/response headers and bodies (redacted, text-only, capped) | `NetworkRequest` |
 | Draft | Report exists, video not yet stored | `status: "draft"` |
 | Published | Video stored and link-shared; report complete | `status: "published"` |
 | Share link | Public URL `/r/<reportId>`; reportId (UUID v4) is the capability | `ReportId` |
@@ -56,9 +59,9 @@ flowchart LR
 | Building block | Element | Notes |
 | --- | --- | --- |
 | Aggregate root | `BugReport`, `Comment` | Identities `ReportId`, `CommentId`; consistency boundary; one aggregate per transaction. `Comment` references its report and thread root by id |
-| Value objects | `ReportId`, `ReporterId`, `VideoRecording`, `StoredVideo`, `DevtoolsSnapshot`, `ConsoleEntry`, `NetworkRequest`, `CommentId`, `AuthorId`, `CommentBody` | Immutable, compared by value, validated on creation |
+| Value objects | `ReportId`, `ReporterId`, `VideoRecording`, `StoredVideo`, `DevtoolsSnapshot`, `ConsoleEntry`, `NetworkRequest`, `StorageSnapshot`, `CommentId`, `AuthorId`, `CommentBody` | Immutable, compared by value, validated on creation |
 | Factory | `draftBugReport` | The only way to create a report; enforces all invariants |
-| Domain policies | `redactUrl`, `assertValidDevtools` | Pure functions; no domain service needed (no rule spans aggregates) |
+| Domain policies | `redactUrl`, `redactStorageSnapshot`, `assertValidDevtools`, `parseStorageSnapshot` | Pure functions; no domain service needed (no rule spans aggregates) |
 | Repository (write side) | `BugReportRepository { save, findById }`, `CommentRepository { save, findById }` | Domain port; loads/saves the whole aggregate |
 | Read model (query side) | `BugReportReadModel { searchSummariesByReporter, findSharedById, findVideoLocation }`, `CommentReadModel { listByReport }` | Application port returning DTOs straight from storage (§5) |
 | Data mapper | `bugReportMapper`, `commentMapper` (`infrastructure/drizzle/mappers/`) | `toDomain` / `toPersistence` for repositories, `toSharedRecord` / `toSummary` / `toView` for read models; the only code that knows both a table row and a domain/DTO shape |
@@ -83,10 +86,13 @@ stateDiagram-v2
   1. `title.trim()` length 1..`MAX_TITLE_LENGTH` (200); stored trimmed.
   2. `pageUrl` is `null` or an `http:`/`https:` URL (`URL.canParse`) of length ≤ `MAX_URL_LENGTH` (2048).
   3. `recording.mimeType === VIDEO_MIME_TYPE` (`"video/webm"`); `sizeBytes` integer 1..`MAX_VIDEO_BYTES` (500 MiB = 524_288_000); `durationMs` integer 1..`MAX_RECORDING_DURATION_MS` (300_000); `startedAt` a valid Date.
-  4. Devtools (`assertValidDevtools`): ≤ `MAX_LOG_ENTRIES` (1000) console entries and ≤ 1000 network requests; console `level ∈ CONSOLE_LEVELS`, `message.length ≤ MAX_CONSOLE_MESSAGE_LENGTH` (2000); network `method` 1..16 chars, `url.length ≤ 2048`, `status` integer 0..599, `durationMs ≥ 0`; every `timestamp` finite.
+  4. Devtools (`assertValidDevtools`): ≤ `MAX_LOG_ENTRIES` (1000) console entries and ≤ 1000 network requests; console `level ∈ CONSOLE_LEVELS`, `message.length ≤ MAX_CONSOLE_MESSAGE_LENGTH` (2000); network `method` 1..16 chars, `url.length ≤ 2048`, `status` integer 0..599, `durationMs ≥ 0`; every `timestamp` finite; network headers (if present) ≤ `MAX_NETWORK_HEADER_COUNT` (30) entries with names ≤ `MAX_NETWORK_HEADER_NAME_LENGTH` (100) and values ≤ `MAX_NETWORK_HEADER_VALUE_LENGTH` (500) chars; network bodies (if present) ≤ `MAX_NETWORK_BODY_LENGTH` (2000) chars plus the truncation marker.
 - `publishBugReport(report, actorId, video)` rules: `actorId !== report.reporterId` → `BUG_REPORT_ACCESS_DENIED`; `report.status === "published"` → `BUG_REPORT_ALREADY_PUBLISHED`; `video.fileId` empty → `INVALID_BUG_REPORT`. Returns a new `PublishedBugReport`.
 - Identity: `toReportId(value)` accepts only UUID strings (top-level regex `/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu`), otherwise throws `BUG_REPORT_NOT_FOUND` (malformed links behave like missing reports). `toReporterId(value)` rejects empty strings with `BUG_REPORT_ACCESS_DENIED`. Both brand via one `as` inside the factory.
 - Redaction policy (shared kernel, applied client-side before data leaves the browser, as Jam does): `redactUrl(url)` replaces values of query params whose name matches `/token|key|secret|password|passwd|auth|session|code|signature|sig/iu` with `[REDACTED]` via `URL`/`searchParams.set`; unparsable input returned unchanged. Example: `https://x.test/a?token=abc&q=1` → `https://x.test/a?token=%5BREDACTED%5D&q=1`.
+- Network redaction (same client-side policy, `redactNetworkRequestDetails`): header values matching `isSecretHeaderName` (`authorization`, `cookie`, `set-cookie`, `proxy-authorization`, `x-api-key`, or the same `isSecretName` regex) become `[REDACTED]`; headers are capped at `MAX_NETWORK_HEADER_COUNT` (30) entries. Bodies are text-only: fetch/XHR reads a body only for text-like content types, else `"[binary]"`; each body is truncated to `MAX_NETWORK_BODY_LENGTH` (2000) chars with a trailing marker. `parseDevtoolsSnapshot` re-checks all of this server-side.
+- Storage redaction (same client-side policy, `redactStorageSnapshot`): values of HttpOnly cookies (server session credentials) and of cookies/storage entries whose name matches the same regex (`isSecretName`) become `[REDACTED]`; each area is capped at `MAX_STORAGE_ENTRIES` (1000), names/domain/path at `MAX_STORAGE_NAME_LENGTH` (256), values at `MAX_STORAGE_VALUE_LENGTH` (2000). `parseStorageSnapshot` re-checks the limits server-side. Persisted in `bug_report.storage` (jsonb, default empty snapshot for older reports); the oRPC `draft` input defaults `storage` so older extensions keep working.
+- User steps (`installStepHooks`, MAIN world): clicks are described as `<tag#id.class[type=…]> "label"` where the label is `aria-label`, else `name`/`placeholder` for form fields (their values are never read), else the first 80 chars of `innerText`; navigations record `redactUrl(location.href)` on load, `pushState`/`replaceState`, `popstate`, `hashchange` (repeats of the same URL skipped); capped at `MAX_USER_STEPS` (1000), details at `MAX_USER_STEP_DETAIL_LENGTH` (500). Persisted in `bug_report.user_steps` (jsonb, default `[]`); `bug_report.environment` (jsonb, nullable). The oRPC `draft` input defaults both.
 
 Process manager `CaptureSession` (Capture Agent's own model, persisted in `storage.session` because the MV3 service worker can be terminated at any time):
 
@@ -186,7 +192,7 @@ Coupling reduction:
 | Draft → upload → publish | Saga without compensation: each step is durable; a failure leaves a harmless Draft | 3 sync calls | Dashboard shows the Draft; no cleanup job |
 | API → Drive / Better Auth | Anticorruption-layer adapters | sync | HTTP status → `VideoStorageError` code |
 | Popup ↔ service worker ↔ offscreen | Typed message channel + state observer (`storage.watch`) | async | Unknown messages ignored; transitions from the wrong state are no-ops (idempotent) |
-| Page → extension | Polling consumer, pulled once at stop | sync | Restricted page → empty devtools snapshot |
+| Page → extension | Polling consumer, pulled once at stop (devtools buffer in MAIN world; web storage in the isolated world; cookies via `browser.cookies.getAll({ url })`) | sync | Restricted page → empty devtools and storage snapshots |
 | MAIN-world hooks | Interceptor wrapping `console`, `fetch`, `XMLHttpRequest` | in-page | Original behavior preserved; errors rethrown |
 
 ```mermaid

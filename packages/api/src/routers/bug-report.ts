@@ -10,6 +10,14 @@ import {
   CONSOLE_LEVELS,
   MAX_LOG_ENTRIES,
 } from "@zam/capture/domain/value-objects/devtools-snapshot";
+import {
+  COOKIE_SAME_SITE,
+  MAX_STORAGE_ENTRIES,
+} from "@zam/capture/domain/value-objects/storage-snapshot";
+import {
+  MAX_USER_STEPS,
+  USER_STEP_KINDS,
+} from "@zam/capture/domain/value-objects/user-step";
 import { VIDEO_MIME_TYPE } from "@zam/capture/domain/value-objects/video-recording";
 import type { Result } from "@zam/capture/shared/result";
 import { z } from "zod";
@@ -69,6 +77,10 @@ const devtoolsInputShape = {
       z.object({
         durationMs: z.number(),
         method: z.string(),
+        requestBody: z.string().nullish(),
+        requestHeaders: z.record(z.string(), z.string()).nullish(),
+        responseBody: z.string().nullish(),
+        responseHeaders: z.record(z.string(), z.string()).nullish(),
         status: z.int(),
         timestamp: z.number(),
         url: z.string(),
@@ -77,12 +89,70 @@ const devtoolsInputShape = {
     .max(MAX_LOG_ENTRIES),
 };
 
+const storageItemsInput = z
+  .array(z.object({ key: z.string(), value: z.string() }))
+  .max(MAX_STORAGE_ENTRIES);
+
+// Optional so extensions released before storage capture can still draft.
+const storageInput = z
+  .object({
+    cookies: z
+      .array(
+        z.object({
+          domain: z.string(),
+          expiresAt: z.number().nullable(),
+          httpOnly: z.boolean(),
+          name: z.string(),
+          path: z.string(),
+          sameSite: z.enum(COOKIE_SAME_SITE),
+          secure: z.boolean(),
+          value: z.string(),
+        })
+      )
+      .max(MAX_STORAGE_ENTRIES),
+    localStorage: storageItemsInput,
+    sessionStorage: storageItemsInput,
+  })
+  .default({ cookies: [], localStorage: [], sessionStorage: [] });
+
+// Both default so extensions released before step/environment capture can still draft.
+const stepsInput = z
+  .array(
+    z.object({
+      detail: z.string(),
+      kind: z.enum(USER_STEP_KINDS),
+      timestamp: z.number(),
+    })
+  )
+  .max(MAX_USER_STEPS)
+  .default([]);
+
+const pixelSizeInput = z.object({ height: z.number(), width: z.number() });
+
+const environmentInput = z
+  .object({
+    browser: z.string(),
+    connection: z
+      .object({ downlinkMbps: z.number(), effectiveType: z.string() })
+      .nullable(),
+    devicePixelRatio: z.number(),
+    language: z.string(),
+    os: z.string(),
+    screen: pixelSizeInput,
+    timeZone: z.string(),
+    userAgent: z.string(),
+    viewport: pixelSizeInput,
+  })
+  .nullable()
+  .default(null);
+
 export const bugReportRouter = {
   draft: protectedProcedure
     .use(storageErrors)
     .input(
       z.object({
         devtools: z.object(devtoolsInputShape),
+        environment: environmentInput,
         pageUrl: z.string().nullable(),
         recording: z.object({
           durationMs: z.int(),
@@ -90,6 +160,8 @@ export const bugReportRouter = {
           sizeBytes: z.int(),
           startedAt: z.date(),
         }),
+        steps: stepsInput,
+        storage: storageInput,
         title: z.string(),
       })
     )
@@ -97,9 +169,12 @@ export const bugReportRouter = {
       unwrapOrThrow(
         await context.capture.draftBugReport({
           devtools: input.devtools,
+          environment: input.environment,
           pageUrl: input.pageUrl,
           recording: input.recording,
           reporterId: context.session.user.id,
+          steps: input.steps,
+          storage: input.storage,
           title: input.title,
         })
       )

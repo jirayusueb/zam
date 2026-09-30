@@ -1,4 +1,7 @@
+import type { ClientEnvironment } from "@zam/capture/domain/value-objects/client-environment";
 import type { DevtoolsSnapshot } from "@zam/capture/domain/value-objects/devtools-snapshot";
+import type { StorageSnapshot } from "@zam/capture/domain/value-objects/storage-snapshot";
+import type { UserStep } from "@zam/capture/domain/value-objects/user-step";
 
 export type ExtensionMessage =
   | { type: "capture:start" }
@@ -15,7 +18,11 @@ export interface CaptureContext {
   title: string;
   pageUrl: string | null;
   startedAt: number;
+  // Collected at stop from the recorded tab; see app/background/collect-*.ts.
   devtools: DevtoolsSnapshot;
+  storage: StorageSnapshot;
+  steps: UserStep[];
+  environment: ClientEnvironment | null;
 }
 
 const MESSAGE_TYPE_SET: Record<ExtensionMessage["type"], true> = {

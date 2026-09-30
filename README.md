@@ -4,7 +4,7 @@ Jam-style bug capture. A reporter records a screen, window, or tab from the brow
 
 Videos are stored in the reporter's own Google Drive. Zam stores only report metadata and devtools evidence, never video bytes.
 
-- **Capture:** Chrome/Firefox extension records video and collects console entries (calls, uncaught errors, rejections) and fetch/XHR requests (method, redacted URL, status, duration).
+- **Capture:** Chrome/Firefox extension records video and collects console entries (calls, uncaught errors, rejections), fetch/XHR requests (method, redacted URL, status, duration, request/response headers and bodies — secrets redacted, bodies capped and text-only), user steps (clicks, navigations, tab visibility; never typed text), the reporter's browser/OS/viewport/connection, and the tab's application storage at stop (cookies, localStorage, sessionStorage; secrets redacted).
 - **Share:** reports go `draft` → `published`; the unguessable report UUID in the link is the access capability.
 - **Sign-in:** Google OAuth via Better Auth; Drive access is required to store the video.
 

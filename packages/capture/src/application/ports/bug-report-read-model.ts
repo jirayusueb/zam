@@ -1,7 +1,10 @@
 import type { BugReportStatus } from "../../domain/entities/bug-report";
+import type { ClientEnvironment } from "../../domain/value-objects/client-environment";
 import type { DevtoolsSnapshot } from "../../domain/value-objects/devtools-snapshot";
 import type { ReportId } from "../../domain/value-objects/report-id";
 import type { ReporterId } from "../../domain/value-objects/reporter-id";
+import type { StorageSnapshot } from "../../domain/value-objects/storage-snapshot";
+import type { UserStep } from "../../domain/value-objects/user-step";
 import type { Option } from "../../shared/option";
 import type { BugReportQuery } from "../query-specifications/bug-report-query";
 
@@ -27,6 +30,9 @@ export interface SharedBugReportRecord {
   createdAt: Date;
   recording: { durationMs: number; startedAt: Date };
   devtools: DevtoolsSnapshot;
+  storage: StorageSnapshot;
+  steps: readonly UserStep[];
+  environment: ClientEnvironment | null;
 }
 
 export interface VideoLocation {

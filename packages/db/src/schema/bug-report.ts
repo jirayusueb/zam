@@ -23,6 +23,50 @@ export interface NetworkRequestRow {
   status: number;
   durationMs: number;
   timestamp: number;
+  requestHeaders?: Record<string, string> | null;
+  responseHeaders?: Record<string, string> | null;
+  requestBody?: string | null;
+  responseBody?: string | null;
+}
+
+export interface StoredCookieRow {
+  name: string;
+  value: string;
+  domain: string;
+  path: string;
+  expiresAt: number | null;
+  httpOnly: boolean;
+  secure: boolean;
+  sameSite: "none" | "lax" | "strict" | "unspecified";
+}
+
+export interface StorageItemRow {
+  key: string;
+  value: string;
+}
+
+export interface UserStepRow {
+  kind: "click" | "navigation" | "visibility";
+  detail: string;
+  timestamp: number;
+}
+
+export interface ClientEnvironmentRow {
+  browser: string;
+  os: string;
+  userAgent: string;
+  language: string;
+  timeZone: string;
+  viewport: { width: number; height: number };
+  screen: { width: number; height: number };
+  devicePixelRatio: number;
+  connection: { effectiveType: string; downlinkMbps: number } | null;
+}
+
+export interface StorageSnapshotRow {
+  cookies: StoredCookieRow[];
+  localStorage: StorageItemRow[];
+  sessionStorage: StorageItemRow[];
 }
 
 const tsvector = customType<{ data: string }>({
@@ -39,6 +83,8 @@ export const bugReport = pgTable(
       .$type<ConsoleEntryRow[]>()
       .notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    // Null for reports captured before environment capture existed.
+    environment: jsonb("environment").$type<ClientEnvironmentRow>(),
     id: text("id").primaryKey(),
     networkRequests: jsonb("network_requests")
       .$type<NetworkRequestRow[]>()
@@ -52,7 +98,13 @@ export const bugReport = pgTable(
     searchTsv: tsvector("search_tsv").generatedAlwaysAs(
       sql`to_tsvector('english', "title" || ' ' || coalesce("page_url", ''))`
     ),
+    // Reports drafted before storage capture existed default to an empty snapshot.
+    storage: jsonb("storage")
+      .$type<StorageSnapshotRow>()
+      .notNull()
+      .default({ cookies: [], localStorage: [], sessionStorage: [] }),
     title: text("title").notNull(),
+    userSteps: jsonb("user_steps").$type<UserStepRow[]>().notNull().default([]),
     videoDurationMs: integer("video_duration_ms").notNull(),
     videoFileId: text("video_file_id"),
     videoMimeType: text("video_mime_type").notNull(),

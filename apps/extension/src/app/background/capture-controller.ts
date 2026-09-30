@@ -1,3 +1,4 @@
+import { EMPTY_STORAGE_SNAPSHOT } from "@zam/capture/domain/value-objects/storage-snapshot";
 import { MAX_TITLE_LENGTH } from "@zam/capture/domain/value-objects/title";
 
 import {
@@ -12,7 +13,9 @@ import { isExtensionMessage } from "@/shared/api/messages";
 import type { CaptureContext, ExtensionMessage } from "@/shared/api/messages";
 import { openWebPage } from "@/shared/lib/open-web-page";
 
-import { collectDevtools } from "./collect-devtools";
+import { collectDevtools, EMPTY_PAGE_BUFFER } from "./collect-devtools";
+import { collectEnvironment } from "./collect-environment";
+import { collectStorage } from "./collect-storage";
 
 const OFFSCREEN_URL = "/offscreen.html";
 
@@ -146,14 +149,21 @@ const handleRecorderStopped = async (
     session.status === "recording"
       ? session.startedAt
       : Date.now() - durationMs;
-  const devtools = target
+  const { devtools, steps } = target
     ? await collectDevtools(target.tabId, startedAt, startedAt + durationMs)
-    : { console: [], network: [] };
+    : EMPTY_PAGE_BUFFER;
+  const storage = target
+    ? await collectStorage(target.tabId)
+    : EMPTY_STORAGE_SNAPSHOT;
+  const environment = target ? await collectEnvironment(target.tabId) : null;
 
   return {
     devtools,
+    environment,
     pageUrl: target?.pageUrl ?? null,
     startedAt,
+    steps,
+    storage,
     title: target?.title ?? "Untitled capture",
   };
 };

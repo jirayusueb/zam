@@ -5,6 +5,7 @@ import type { Result } from "../../shared/result";
 import type { CaptureDomainError } from "../capture-domain-error";
 import { parseReportId } from "../value-objects/report-id";
 import { parseReporterId } from "../value-objects/reporter-id";
+import { EMPTY_STORAGE_SNAPSHOT } from "../value-objects/storage-snapshot";
 import { VIDEO_MIME_TYPE } from "../value-objects/video-recording";
 import { draftBugReport, publishBugReport } from "./bug-report";
 
@@ -18,6 +19,7 @@ const reportId = unwrap(parseReportId("33333333-3333-3333-3333-333333333333"));
 
 const validInput = () => ({
   devtools: { console: [], network: [] },
+  environment: null,
   pageUrl: "https://example.com/page",
   recording: {
     durationMs: 5000,
@@ -26,6 +28,8 @@ const validInput = () => ({
     startedAt: new Date(),
   },
   reporterId: reporterA,
+  steps: [],
+  storage: EMPTY_STORAGE_SNAPSHOT,
   title: "  A bug  ",
 });
 

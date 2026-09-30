@@ -1,9 +1,12 @@
 import type { CaptureDomainError } from "../../domain/capture-domain-error";
 import { draftBugReport } from "../../domain/entities/bug-report";
 import type { BugReportRepository } from "../../domain/repositories/bug-report-repository";
+import type { ClientEnvironment } from "../../domain/value-objects/client-environment";
 import type { DevtoolsSnapshot } from "../../domain/value-objects/devtools-snapshot";
 import type { ReportId } from "../../domain/value-objects/report-id";
 import { parseReporterId } from "../../domain/value-objects/reporter-id";
+import type { StorageSnapshot } from "../../domain/value-objects/storage-snapshot";
+import type { UserStep } from "../../domain/value-objects/user-step";
 import type { VideoRecording } from "../../domain/value-objects/video-recording";
 import { ok } from "../../shared/result";
 import type { Result } from "../../shared/result";
@@ -22,6 +25,9 @@ export interface DraftBugReportInput {
   pageUrl: string | null;
   recording: VideoRecording;
   devtools: DevtoolsSnapshot;
+  storage: StorageSnapshot;
+  steps: readonly UserStep[];
+  environment: ClientEnvironment | null;
 }
 
 export interface DraftBugReportOutput {
@@ -44,9 +50,12 @@ export const createDraftBugReport =
     const drafted = draftBugReport(
       {
         devtools: input.devtools,
+        environment: input.environment,
         pageUrl: input.pageUrl,
         recording: input.recording,
         reporterId: reporterId.value,
+        steps: input.steps,
+        storage: input.storage,
         title: input.title,
       },
       { id: deps.generateReportId(), now: deps.now }

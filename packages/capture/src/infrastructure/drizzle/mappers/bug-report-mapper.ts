@@ -30,6 +30,7 @@ export const bugReportMapper = {
     const base = {
       createdAt: row.createdAt,
       devtools: { console: row.consoleEntries, network: row.networkRequests },
+      environment: row.environment,
       id: unwrap(parseReportId(row.id)),
       pageUrl: row.pageUrl === null ? null : unwrap(parsePageUrl(row.pageUrl)),
       recording: {
@@ -39,6 +40,8 @@ export const bugReportMapper = {
         startedAt: row.recordingStartedAt,
       },
       reporterId: unwrap(parseReporterId(row.reporterId)),
+      steps: row.userSteps,
+      storage: row.storage,
       title: unwrap(parseTitle(row.title)),
     };
     return row.videoFileId === null
@@ -49,12 +52,19 @@ export const bugReportMapper = {
   toPersistence: (report: BugReport) => ({
     consoleEntries: [...report.devtools.console],
     createdAt: report.createdAt,
+    environment: report.environment,
     id: report.id,
     networkRequests: [...report.devtools.network],
     pageUrl: report.pageUrl,
     recordingStartedAt: report.recording.startedAt,
     reporterId: report.reporterId,
+    storage: {
+      cookies: [...report.storage.cookies],
+      localStorage: [...report.storage.localStorage],
+      sessionStorage: [...report.storage.sessionStorage],
+    },
     title: report.title,
+    userSteps: [...report.steps],
     videoDurationMs: report.recording.durationMs,
     videoFileId: report.video?.fileId ?? null,
     videoMimeType: report.recording.mimeType,
@@ -64,6 +74,7 @@ export const bugReportMapper = {
   toSharedRecord: (row: BugReportRow): SharedBugReportRecord => ({
     createdAt: row.createdAt,
     devtools: { console: row.consoleEntries, network: row.networkRequests },
+    environment: row.environment,
     pageUrl: row.pageUrl,
     recording: {
       durationMs: row.videoDurationMs,
@@ -71,6 +82,8 @@ export const bugReportMapper = {
     },
     reportId: unwrap(parseReportId(row.id)),
     status: statusOf(row.videoFileId),
+    steps: row.userSteps,
+    storage: row.storage,
     title: row.title,
   }),
 

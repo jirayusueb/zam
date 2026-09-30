@@ -1,6 +1,9 @@
 import { CaptureDomainError } from "../../domain/capture-domain-error";
+import type { ClientEnvironment } from "../../domain/value-objects/client-environment";
 import type { DevtoolsSnapshot } from "../../domain/value-objects/devtools-snapshot";
 import { parseReportId } from "../../domain/value-objects/report-id";
+import type { StorageSnapshot } from "../../domain/value-objects/storage-snapshot";
+import type { UserStep } from "../../domain/value-objects/user-step";
 import { okOr } from "../../shared/option";
 import { ok } from "../../shared/result";
 import type { Result } from "../../shared/result";
@@ -25,6 +28,9 @@ export interface SharedBugReportView {
   createdAt: Date;
   recording: { durationMs: number; startedAt: Date };
   devtools: DevtoolsSnapshot;
+  storage: StorageSnapshot;
+  steps: readonly UserStep[];
+  environment: ClientEnvironment | null;
 }
 
 export type ViewSharedBugReportUseCase = (
@@ -53,10 +59,13 @@ export const createViewSharedBugReport =
     return ok({
       createdAt: record.createdAt,
       devtools: record.devtools,
+      environment: record.environment,
       pageUrl: record.pageUrl,
       recording: record.recording,
       reportId: record.reportId,
       status: record.status,
+      steps: record.steps,
+      storage: record.storage,
       title: record.title,
     });
   };

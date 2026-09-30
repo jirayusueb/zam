@@ -22,6 +22,17 @@ const draft = unwrap(
         console: [{ level: "error", message: "boom", timestamp: 1 }],
         network: [],
       },
+      environment: {
+        browser: "Chrome 153.0.0.0",
+        connection: { downlinkMbps: 10, effectiveType: "4g" },
+        devicePixelRatio: 2,
+        language: "th-TH",
+        os: "macOS 15.4.0",
+        screen: { height: 1117, width: 1728 },
+        timeZone: "Asia/Bangkok",
+        userAgent: "Mozilla/5.0",
+        viewport: { height: 900, width: 1440 },
+      },
       pageUrl: "https://example.com/page",
       recording: {
         durationMs: 5000,
@@ -30,6 +41,23 @@ const draft = unwrap(
         startedAt: new Date(0),
       },
       reporterId,
+      steps: [{ detail: '<button#pay> "Pay"', kind: "click", timestamp: 2 }],
+      storage: {
+        cookies: [
+          {
+            domain: "example.com",
+            expiresAt: null,
+            httpOnly: false,
+            name: "theme",
+            path: "/",
+            sameSite: "lax",
+            secure: true,
+            value: "dark",
+          },
+        ],
+        localStorage: [{ key: "cart", value: "[1,2]" }],
+        sessionStorage: [],
+      },
       title: "A bug",
     },
     {

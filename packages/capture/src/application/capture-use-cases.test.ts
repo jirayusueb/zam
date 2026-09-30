@@ -7,6 +7,7 @@ import type { CommentRepository } from "../domain/repositories/comment-repositor
 import { parseCommentId } from "../domain/value-objects/comment-id";
 import { parseReportId } from "../domain/value-objects/report-id";
 import { parseReporterId } from "../domain/value-objects/reporter-id";
+import { EMPTY_STORAGE_SNAPSHOT } from "../domain/value-objects/storage-snapshot";
 import { VIDEO_MIME_TYPE } from "../domain/value-objects/video-recording";
 import { none, some } from "../shared/option";
 import { unwrap } from "../shared/result";
@@ -52,6 +53,7 @@ const noopStorage = (): VideoStorage => ({
 
 const draftInput = () => ({
   devtools: { console: [], network: [] },
+  environment: null,
   pageUrl: null,
   recording: {
     durationMs: 1000,
@@ -60,6 +62,8 @@ const draftInput = () => ({
     startedAt: new Date(),
   },
   reporterId: REPORTER_ID,
+  steps: [],
+  storage: EMPTY_STORAGE_SNAPSHOT,
   title: "A bug",
 });
 

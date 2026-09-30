@@ -7,16 +7,22 @@ import {
   onlyReporterMayPublish,
   publishOnlyOnce,
 } from "../rules/bug-report-rules";
+import { parseClientEnvironment } from "../value-objects/client-environment";
+import type { ClientEnvironment } from "../value-objects/client-environment";
 import { parseDevtoolsSnapshot } from "../value-objects/devtools-snapshot";
 import type { DevtoolsSnapshot } from "../value-objects/devtools-snapshot";
 import { parsePageUrl } from "../value-objects/page-url";
 import type { PageUrl } from "../value-objects/page-url";
 import type { ReportId } from "../value-objects/report-id";
 import type { ReporterId } from "../value-objects/reporter-id";
+import { parseStorageSnapshot } from "../value-objects/storage-snapshot";
+import type { StorageSnapshot } from "../value-objects/storage-snapshot";
 import { parseStoredVideo } from "../value-objects/stored-video";
 import type { StoredVideo } from "../value-objects/stored-video";
 import { parseTitle } from "../value-objects/title";
 import type { Title } from "../value-objects/title";
+import { parseUserSteps } from "../value-objects/user-step";
+import type { UserStep } from "../value-objects/user-step";
 import { parseVideoRecording } from "../value-objects/video-recording";
 import type { VideoRecording } from "../value-objects/video-recording";
 
@@ -28,6 +34,10 @@ interface BaseBugReport extends Entity<ReportId> {
   pageUrl: PageUrl | null;
   recording: VideoRecording;
   devtools: DevtoolsSnapshot;
+  storage: StorageSnapshot;
+  steps: readonly UserStep[];
+  /** `null` for reports captured before environment capture existed. */
+  environment: ClientEnvironment | null;
   createdAt: Date;
 }
 
@@ -49,6 +59,9 @@ export interface DraftBugReportInput {
   pageUrl: string | null;
   recording: VideoRecording;
   devtools: DevtoolsSnapshot;
+  storage: StorageSnapshot;
+  steps: readonly UserStep[];
+  environment: ClientEnvironment | null;
 }
 
 export const draftBugReport = (
@@ -72,14 +85,32 @@ export const draftBugReport = (
   if (!devtools.ok) {
     return devtools;
   }
+  const storage = parseStorageSnapshot(input.storage);
+  if (!storage.ok) {
+    return storage;
+  }
+  const steps = parseUserSteps(input.steps);
+  if (!steps.ok) {
+    return steps;
+  }
+  const environment =
+    input.environment === null
+      ? ok(null)
+      : parseClientEnvironment(input.environment);
+  if (!environment.ok) {
+    return environment;
+  }
   return ok({
     createdAt: deps.now(),
     devtools: devtools.value,
+    environment: environment.value,
     id: deps.id,
     pageUrl: pageUrl.value,
     recording: recording.value,
     reporterId: input.reporterId,
     status: "draft",
+    steps: steps.value,
+    storage: storage.value,
     title: title.value,
     video: null,
   });

@@ -27,6 +27,11 @@ export interface NetworkRequest {
   status: number;
   durationMs: number;
   timestamp: number;
+  /** `null`/absent when not captured: old reports, or a non-text body (see `truncateNetworkBody`). */
+  requestHeaders?: Record<string, string> | null;
+  responseHeaders?: Record<string, string> | null;
+  requestBody?: string | null;
+  responseBody?: string | null;
 }
 
 export interface DevtoolsSnapshot {
@@ -37,8 +42,14 @@ export interface DevtoolsSnapshot {
 export const MAX_LOG_ENTRIES = 1000;
 export const MAX_CONSOLE_MESSAGE_LENGTH = 2000;
 
-const SECRET_PARAM_REGEX =
+const SECRET_NAME_REGEX =
   /token|key|secret|password|passwd|auth|session|code|signature|sig/iu;
+
+export const REDACTED = "[REDACTED]";
+
+/** Redaction policy shared by URL query params and application storage names. */
+export const isSecretName = (name: string): boolean =>
+  SECRET_NAME_REGEX.test(name);
 
 export const redactUrl = (url: string): string => {
   let parsed: URL;
@@ -48,15 +59,95 @@ export const redactUrl = (url: string): string => {
     return url;
   }
   for (const name of parsed.searchParams.keys()) {
-    if (SECRET_PARAM_REGEX.test(name)) {
-      parsed.searchParams.set(name, "[REDACTED]");
+    if (isSecretName(name)) {
+      parsed.searchParams.set(name, REDACTED);
     }
   }
   return parsed.toString();
 };
 
+export const MAX_NETWORK_HEADER_COUNT = 30;
+export const MAX_NETWORK_HEADER_NAME_LENGTH = 100;
+export const MAX_NETWORK_HEADER_VALUE_LENGTH = 500;
+export const MAX_NETWORK_BODY_LENGTH = 2000;
+export const NETWORK_BODY_TRUNCATION_MARKER = "…[truncated]";
+export const BINARY_BODY_NOTE = "[binary]";
+
+const SENSITIVE_HEADER_NAMES: Record<string, true> = {
+  authorization: true,
+  cookie: true,
+  "proxy-authorization": true,
+  "set-cookie": true,
+  "x-api-key": true,
+};
+
+/** Redaction policy for network headers: named secrets plus anything matching `isSecretName`. */
+export const isSecretHeaderName = (name: string): boolean =>
+  SENSITIVE_HEADER_NAMES[name.toLowerCase()] === true || isSecretName(name);
+
+/** Applied client-side before headers leave the browser, like `redactUrl`. */
+export const redactNetworkHeaders = (
+  headers: Record<string, string> | null | undefined
+): Record<string, string> | null => {
+  if (!headers) {
+    return null;
+  }
+  return Object.fromEntries(
+    Object.entries(headers)
+      .slice(0, MAX_NETWORK_HEADER_COUNT)
+      .map(([name, value]) => [
+        name.slice(0, MAX_NETWORK_HEADER_NAME_LENGTH),
+        isSecretHeaderName(name)
+          ? REDACTED
+          : value.slice(0, MAX_NETWORK_HEADER_VALUE_LENGTH),
+      ])
+  );
+};
+
+/** Applied client-side before bodies leave the browser, like `redactUrl`. */
+export const truncateNetworkBody = (
+  body: string | null | undefined
+): string | null => {
+  if (body === null || body === undefined) {
+    return null;
+  }
+  return body.length > MAX_NETWORK_BODY_LENGTH
+    ? body.slice(0, MAX_NETWORK_BODY_LENGTH) + NETWORK_BODY_TRUNCATION_MARKER
+    : body;
+};
+
+/** Redacts headers and truncates bodies; applied client-side before a network request leaves the browser. */
+export const redactNetworkRequestDetails = (
+  request: NetworkRequest
+): NetworkRequest => ({
+  ...request,
+  requestBody: truncateNetworkBody(request.requestBody),
+  requestHeaders: redactNetworkHeaders(request.requestHeaders),
+  responseBody: truncateNetworkBody(request.responseBody),
+  responseHeaders: redactNetworkHeaders(request.responseHeaders),
+});
+
 const MAX_HTTP_METHOD_LENGTH = 16;
 const MAX_HTTP_STATUS = 599;
+
+const MAX_NETWORK_BODY_STORED_LENGTH =
+  MAX_NETWORK_BODY_LENGTH + NETWORK_BODY_TRUNCATION_MARKER.length;
+
+const fitsNetworkHeaderLimits = (
+  headers: Record<string, string> | null | undefined
+): boolean =>
+  !headers ||
+  (Object.keys(headers).length <= MAX_NETWORK_HEADER_COUNT &&
+    Object.entries(headers).every(
+      ([name, value]) =>
+        name.length <= MAX_NETWORK_HEADER_NAME_LENGTH &&
+        value.length <= MAX_NETWORK_HEADER_VALUE_LENGTH
+    ));
+
+const fitsNetworkBodyLimit = (body: string | null | undefined): boolean =>
+  body === null ||
+  body === undefined ||
+  body.length <= MAX_NETWORK_BODY_STORED_LENGTH;
 
 type DevtoolsRule = DomainRule<CaptureDomainError>;
 
@@ -113,6 +204,24 @@ const networkRequestRules = (request: NetworkRequest): DevtoolsRule[] => [
     holds: () => Number.isFinite(request.timestamp),
     violation: () =>
       invalidBugReport("Network request timestamp must be finite"),
+  },
+  {
+    holds: () =>
+      fitsNetworkHeaderLimits(request.requestHeaders) &&
+      fitsNetworkHeaderLimits(request.responseHeaders),
+    violation: () =>
+      invalidBugReport(
+        `Network headers exceed ${MAX_NETWORK_HEADER_COUNT} entries or the ${MAX_NETWORK_HEADER_NAME_LENGTH}/${MAX_NETWORK_HEADER_VALUE_LENGTH} character name/value limits`
+      ),
+  },
+  {
+    holds: () =>
+      fitsNetworkBodyLimit(request.requestBody) &&
+      fitsNetworkBodyLimit(request.responseBody),
+    violation: () =>
+      invalidBugReport(
+        `Network body exceeds the maximum of ${MAX_NETWORK_BODY_LENGTH} characters`
+      ),
   },
 ];
 

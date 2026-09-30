@@ -38,12 +38,19 @@ export const publishReport = async ({
         console: [...context.devtools.console],
         network: [...context.devtools.network],
       },
+      environment: context.environment,
       pageUrl: context.pageUrl,
       recording: {
         durationMs,
         mimeType: VIDEO_MIME_TYPE,
         sizeBytes: seekableVideo.size,
         startedAt: new Date(context.startedAt),
+      },
+      steps: [...context.steps],
+      storage: {
+        cookies: [...context.storage.cookies],
+        localStorage: [...context.storage.localStorage],
+        sessionStorage: [...context.storage.sessionStorage],
       },
       title: context.title,
     });
