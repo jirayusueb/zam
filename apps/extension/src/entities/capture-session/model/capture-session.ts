@@ -14,7 +14,19 @@ export type CaptureSession =
   | { status: "idle"; lastOutcome: CaptureOutcome | null }
   | { status: "selecting"; target: CaptureTarget }
   | { status: "recording"; target: CaptureTarget; startedAt: number }
-  | { status: "publishing"; target: CaptureTarget; startedAt: number };
+  | {
+      status: "editing";
+      target: CaptureTarget;
+      startedAt: number;
+      /** Null until the offscreen recorder has the recording ready and the editor tab is open. */
+      editorTabId: number | null;
+    }
+  | {
+      status: "publishing";
+      target: CaptureTarget;
+      startedAt: number;
+      editorTabId: number | null;
+    };
 
 export const captureSessionItem = storage.defineItem<CaptureSession>(
   "session:captureSession",
@@ -38,16 +50,40 @@ export const beginRecording = (
   return { startedAt, status: "recording", target: session.target };
 };
 
-export const beginPublishing = (session: CaptureSession): CaptureSession => {
+export const beginEditing = (session: CaptureSession): CaptureSession => {
   if (session.status !== "recording") {
     return session;
   }
   return {
+    editorTabId: null,
     startedAt: session.startedAt,
-    status: "publishing",
+    status: "editing",
     target: session.target,
   };
 };
+
+export const attachEditor = (
+  session: CaptureSession,
+  editorTabId: number
+): CaptureSession => {
+  if (session.status !== "editing") {
+    return session;
+  }
+  return { ...session, editorTabId };
+};
+
+export const beginPublishing = (session: CaptureSession): CaptureSession => {
+  if (session.status !== "editing") {
+    return session;
+  }
+  return { ...session, status: "publishing" };
+};
+
+/** The editor tab of an in-flight edit or upload, if any. */
+export const editorTabOf = (session: CaptureSession): number | null =>
+  session.status === "editing" || session.status === "publishing"
+    ? session.editorTabId
+    : null;
 
 export const finishCapture = (
   session: CaptureSession,

@@ -1,4 +1,3 @@
-import { publishReport } from "@/features/publish-report";
 import { startScreenRecording } from "@/features/record-screen";
 import type { ScreenRecording } from "@/features/record-screen";
 import {
@@ -6,9 +5,13 @@ import {
   requestCaptureContext,
   sendExtensionMessage,
 } from "@/shared/api/messages";
+import type { PendingRecording } from "@/shared/api/messages";
 
 export const registerOffscreenRecorder = (): void => {
   let active: ScreenRecording | null = null;
+  // Lives until the capture controller closes this document (publish, failure, or discard),
+  // which also revokes the blob URL.
+  let pending: PendingRecording | null = null;
 
   const runRecording = async (): Promise<void> => {
     const recording = await startScreenRecording();
@@ -26,16 +29,8 @@ export const registerOffscreenRecorder = (): void => {
     active = null;
 
     const context = await requestCaptureContext(durationMs);
-    const outcome = await publishReport({ context, durationMs, video });
-    const resultMessage =
-      outcome.kind === "published"
-        ? ({ reportId: outcome.reportId, type: "report:published" } as const)
-        : ({
-            message: outcome.message,
-            reportId: outcome.reportId,
-            type: "report:failed",
-          } as const);
-    await sendExtensionMessage(resultMessage);
+    pending = { context, durationMs, videoUrl: URL.createObjectURL(video) };
+    await sendExtensionMessage({ type: "recorder:ready" });
   };
 
   const runRecordingReportingErrors = async (): Promise<void> => {
@@ -52,7 +47,7 @@ export const registerOffscreenRecorder = (): void => {
     }
   };
 
-  browser.runtime.onMessage.addListener((message) => {
+  browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!isExtensionMessage(message)) {
       return;
     }
@@ -63,6 +58,8 @@ export const registerOffscreenRecorder = (): void => {
       void runRecordingReportingErrors();
     } else if (message.type === "recorder:stop") {
       active?.stop();
+    } else if (message.type === "editor:load") {
+      sendResponse(pending);
     }
   });
 };

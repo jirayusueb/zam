@@ -92,7 +92,7 @@ stateDiagram-v2
 - Redaction policy (shared kernel, applied client-side before data leaves the browser, as Jam does): `redactUrl(url)` replaces values of query params whose name matches `/token|key|secret|password|passwd|auth|session|code|signature|sig/iu` with `[REDACTED]` via `URL`/`searchParams.set`; unparsable input returned unchanged. Example: `https://x.test/a?token=abc&q=1` → `https://x.test/a?token=%5BREDACTED%5D&q=1`.
 - Network redaction (same client-side policy, `redactNetworkRequestDetails`): header values matching `isSecretHeaderName` (`authorization`, `cookie`, `set-cookie`, `proxy-authorization`, `x-api-key`, or the same `isSecretName` regex) become `[REDACTED]`; headers are capped at `MAX_NETWORK_HEADER_COUNT` (30) entries. Bodies are text-only: fetch/XHR reads a body only for text-like content types, else `"[binary]"`; each body is truncated to `MAX_NETWORK_BODY_LENGTH` (2000) chars with a trailing marker. `parseDevtoolsSnapshot` re-checks all of this server-side.
 - Storage redaction (same client-side policy, `redactStorageSnapshot`): values of HttpOnly cookies (server session credentials) and of cookies/storage entries whose name matches the same regex (`isSecretName`) become `[REDACTED]`; each area is capped at `MAX_STORAGE_ENTRIES` (1000), names/domain/path at `MAX_STORAGE_NAME_LENGTH` (256), values at `MAX_STORAGE_VALUE_LENGTH` (2000). `parseStorageSnapshot` re-checks the limits server-side. Persisted in `bug_report.storage` (jsonb, default empty snapshot for older reports); the oRPC `draft` input defaults `storage` so older extensions keep working.
-- User steps (`installStepHooks`, MAIN world): clicks are described as `<tag#id.class[type=…]> "label"` where the label is `aria-label`, else `name`/`placeholder` for form fields (their values are never read), else the first 80 chars of `innerText`; navigations record `redactUrl(location.href)` on load, `pushState`/`replaceState`, `popstate`, `hashchange` (repeats of the same URL skipped); capped at `MAX_USER_STEPS` (1000), details at `MAX_USER_STEP_DETAIL_LENGTH` (500). Persisted in `bug_report.user_steps` (jsonb, default `[]`); `bug_report.environment` (jsonb, nullable). The oRPC `draft` input defaults both.
+- User steps (`installStepHooks`, MAIN world): clicks are described as `<tag#id.class[type=…]> "label"` where the label is `aria-label`, else `name`/`placeholder` for form fields (their values are never read), else the first 80 chars of `innerText`; navigations record `redactUrl(location.href)` on load, `pushState`/`replaceState`, `popstate`, `hashchange` (repeats of the same URL skipped); capped at `MAX_USER_STEPS` (1000), details at `MAX_USER_STEP_DETAIL_LENGTH` (500). The editor retimes steps with `cutSteps` like devtools entries. Persisted in `bug_report.user_steps` (jsonb, default `[]`); `bug_report.environment` (jsonb, nullable). The oRPC `draft` input defaults both.
 
 Process manager `CaptureSession` (Capture Agent's own model, persisted in `storage.session` because the MV3 service worker can be terminated at any time):
 
@@ -102,9 +102,13 @@ stateDiagram-v2
   idle --> selecting: capture:start
   selecting --> idle: recorder:cancelled
   selecting --> recording: recorder:started
-  recording --> publishing: recorder:stopped
-  publishing --> idle: report:published / report:failed
+  recording --> editing: recorder:stopped (editor tab opens on recorder:ready)
+  editing --> idle: capture:discard / editor tab closed
+  editing --> publishing: editor:publishing
+  publishing --> idle: report:published / report:failed / editor tab closed
 ```
+
+Editing (`features/edit-recording`, page `editor.html`): the offscreen document keeps the finished recording as a `PendingRecording` (blob URL + duration + `CaptureContext`) and answers `editor:load` from the editor tab; closing the offscreen document (publish, failure, discard) revokes it. The reporter marks cut ranges; `keptSegments` turns them into the kept ranges of the original clock. Before any upload, `renderKeptSegments` re-encodes only the kept ranges with WebCodecs (mediabunny, same codecs, WebM), so cut footage never reaches Drive. `cutDevtools` drops console/network entries whose timestamp falls inside a cut and shifts later ones onto the edited clock (`startedAt` is unchanged, `durationMs` becomes the kept length). With no cuts, the original bytes are uploaded as is. A failed cut leaves the session in `editing` so the reporter can retry; the editor tab becomes `/r/<id>` once the report is published.
 
 Commands and queries:
 
@@ -188,10 +192,10 @@ Coupling reduction:
 | Interaction | Pattern | Sync | Failure behavior |
 | --- | --- | --- | --- |
 | Extension → API (`draft`, `publish`) | Request/response RPC over the Published Language | sync | Error → popup `Alert`; no automatic retry |
-| Extension → Drive video bytes | Valet Key: server-issued resumable session URI, client `PUT` | sync | Non-2xx → failed outcome; report stays Draft |
+| Extension → Drive video bytes | Valet Key: server-issued resumable session URI, client `PUT` from the editor tab | sync | Non-2xx → failed outcome; report stays Draft |
 | Draft → upload → publish | Saga without compensation: each step is durable; a failure leaves a harmless Draft | 3 sync calls | Dashboard shows the Draft; no cleanup job |
 | API → Drive / Better Auth | Anticorruption-layer adapters | sync | HTTP status → `VideoStorageError` code |
-| Popup ↔ service worker ↔ offscreen | Typed message channel + state observer (`storage.watch`) | async | Unknown messages ignored; transitions from the wrong state are no-ops (idempotent) |
+| Popup ↔ service worker ↔ offscreen ↔ editor tab | Typed message channel + state observer (`storage.watch`) | async | Unknown messages ignored; transitions from the wrong state are no-ops (idempotent) |
 | Page → extension | Polling consumer, pulled once at stop (devtools buffer in MAIN world; web storage in the isolated world; cookies via `browser.cookies.getAll({ url })`) | sync | Restricted page → empty devtools and storage snapshots |
 | MAIN-world hooks | Interceptor wrapping `console`, `fetch`, `XMLHttpRequest` | in-page | Original behavior preserved; errors rethrown |
 
@@ -200,6 +204,7 @@ sequenceDiagram
   participant P as Popup
   participant SW as Service worker
   participant O as Offscreen recorder
+  participant E as Editor tab
   participant T as Page (MAIN world)
   participant API as Web API (Capture)
   participant D as Google Drive
@@ -212,15 +217,21 @@ sequenceDiagram
   O->>SW: recorder:stopped
   SW->>T: executeScript (pull devtools buffer)
   SW-->>O: CaptureContext
-  O->>API: bugReport.draft
+  O->>SW: recorder:ready
+  SW->>E: open editor.html
+  E->>O: editor:load
+  O-->>E: PendingRecording (blob URL)
+  E->>E: cut ranges, re-encode kept segments, shift devtools
+  E->>SW: editor:publishing
+  E->>API: bugReport.draft
   API->>D: create resumable session (server token)
-  API-->>O: reportId, uploadUrl
-  O->>D: PUT video
-  D-->>O: file id
-  O->>API: bugReport.publish
+  API-->>E: reportId, uploadUrl
+  E->>D: PUT video
+  D-->>E: file id
+  E->>API: bugReport.publish
   API->>D: permission anyone:reader
-  O->>SW: report:published
-  SW->>SW: open tab /r/reportId
+  E->>SW: report:published
+  SW->>E: navigate tab to /r/reportId
 ```
 
 No queues, webhooks, or outbox: no asynchronous consumer exists (§5).

@@ -16,6 +16,7 @@ import { useViewer, ViewerSummary } from "@/entities/viewer";
 import { SignInButton } from "@/features/sign-in";
 import { StartCaptureButton } from "@/features/start-capture";
 import { StopCaptureButton } from "@/features/stop-capture";
+import { sendExtensionMessage } from "@/shared/api/messages";
 import { openWebPage } from "@/shared/lib/open-web-page";
 
 const CaptureControls = () => {
@@ -73,6 +74,38 @@ const CaptureControls = () => {
       <div className="flex items-center justify-between gap-2">
         <CaptureStatus startedAt={session.startedAt} />
         <StopCaptureButton />
+      </div>
+    );
+  }
+
+  if (session.status === "editing") {
+    const { editorTabId } = session;
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-muted-foreground text-sm">
+          Cut your recording in the editor tab, then publish it.
+        </p>
+        <div className="flex gap-2">
+          <Button
+            className="flex-1"
+            disabled={editorTabId === null}
+            onClick={() => {
+              if (editorTabId !== null) {
+                void browser.tabs.update(editorTabId, { active: true });
+              }
+            }}
+          >
+            Show editor
+          </Button>
+          <Button
+            onClick={() => {
+              void sendExtensionMessage({ type: "capture:discard" });
+            }}
+            variant="ghost"
+          >
+            Discard
+          </Button>
+        </div>
       </div>
     );
   }

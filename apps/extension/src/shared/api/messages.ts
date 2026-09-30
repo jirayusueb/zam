@@ -6,11 +6,15 @@ import type { UserStep } from "@zam/capture/domain/value-objects/user-step";
 export type ExtensionMessage =
   | { type: "capture:start" }
   | { type: "capture:stop" }
+  | { type: "capture:discard" }
   | { type: "recorder:start" }
   | { type: "recorder:stop" }
   | { type: "recorder:started"; startedAt: number }
   | { type: "recorder:cancelled" }
   | { type: "recorder:stopped"; durationMs: number }
+  | { type: "recorder:ready" }
+  | { type: "editor:load" }
+  | { type: "editor:publishing" }
   | { type: "report:published"; reportId: string }
   | { type: "report:failed"; message: string; reportId: string | null };
 
@@ -25,10 +29,22 @@ export interface CaptureContext {
   environment: ClientEnvironment | null;
 }
 
+/** A finished capture, held by the offscreen document until the editor publishes or discards it. */
+export interface PendingRecording {
+  /** Blob URL owned by the offscreen document; readable from any extension page while it lives. */
+  videoUrl: string;
+  durationMs: number;
+  context: CaptureContext;
+}
+
 const MESSAGE_TYPE_SET: Record<ExtensionMessage["type"], true> = {
+  "capture:discard": true,
   "capture:start": true,
   "capture:stop": true,
+  "editor:load": true,
+  "editor:publishing": true,
   "recorder:cancelled": true,
+  "recorder:ready": true,
   "recorder:start": true,
   "recorder:started": true,
   "recorder:stop": true,
@@ -61,3 +77,10 @@ export const requestCaptureContext = async (
   // recorder:stopped is answered only by the capture controller, which always responds with a CaptureContext
   return response as CaptureContext;
 };
+
+export const requestPendingRecording =
+  async (): Promise<PendingRecording | null> => {
+    const response = await sendExtensionMessage({ type: "editor:load" });
+    // editor:load is answered only by the offscreen recorder, with its PendingRecording or null
+    return (response ?? null) as PendingRecording | null;
+  };
