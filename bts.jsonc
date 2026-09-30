@@ -1,0 +1,31 @@
+// Better-T-Stack project metadata
+//
+// Keep this file to use the `add` command.
+// Add addons: bunx create-better-t-stack@latest add
+//
+// Docs: https://better-t-stack.dev/docs
+// Stack Builder: https://better-t-stack.dev/new
+
+{
+  "$schema": "https://r2.better-t-stack.dev/schema.json",
+  "version": "3.44.2",
+  "createdAt": "2026-09-30T08:44:55.175Z",
+  "reproducibleCommand": "bun create better-t-stack@latest zam --frontend tanstack-start --backend self --runtime none --database postgres --orm drizzle --api orpc --auth better-auth --payments none --addons lefthook mcp oxlint skills ultracite vite-plus wxt --examples todo --db-setup neon --web-deploy cloudflare --server-deploy none --git --package-manager bun --install",
+  "dbSetupOptions": {
+    "mode": "alchemy",
+  },
+  "database": "postgres",
+  "orm": "drizzle",
+  "backend": "self",
+  "runtime": "none",
+  "frontend": ["tanstack-start"],
+  "addons": ["lefthook", "mcp", "oxlint", "skills", "ultracite", "vite-plus", "wxt"],
+  "examples": ["todo"],
+  "auth": "better-auth",
+  "payments": "none",
+  "packageManager": "bun",
+  "dbSetup": "neon",
+  "api": "orpc",
+  "webDeploy": "cloudflare",
+  "serverDeploy": "none",
+}
