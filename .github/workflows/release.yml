@@ -38,16 +38,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - id: tag
-        run: echo "tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
+        # release-it commits only when it releases; otherwise tag stays empty and downstream jobs skip.
+        run: |
+          if [ "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]; then
+            echo "tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
+          fi
 
   extension:
     needs: release
+    if: needs.release.outputs.tag != ''
     uses: ./.github/workflows/release-extension.yml
     with:
       tag: ${{ needs.release.outputs.tag }}
 
   deploy:
     needs: release
+    if: needs.release.outputs.tag != ''
     uses: ./.github/workflows/deploy.yml
     secrets: inherit
     with:
