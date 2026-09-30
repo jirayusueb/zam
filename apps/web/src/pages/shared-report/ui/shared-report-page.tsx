@@ -1,8 +1,17 @@
+import { useClipboard } from "@shined/react-use";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Button, buttonVariants } from "@zam/ui/components/button";
+import { ArrowUpRightIcon } from "@zam/ui/components/icons/arrow-up-right";
+import type { ArrowUpRightIconHandle } from "@zam/ui/components/icons/arrow-up-right";
+import { CheckIcon } from "@zam/ui/components/icons/check";
+import { LinkIcon } from "@zam/ui/components/icons/link";
+import type { LinkIconHandle } from "@zam/ui/components/icons/link";
 import { Skeleton } from "@zam/ui/components/skeleton";
-import { ArrowUpRight, Link2 } from "lucide-react";
+import {
+  playOnMount,
+  useIconAnimation,
+} from "@zam/ui/hooks/use-icon-animation";
 import { toast } from "sonner";
 
 import {
@@ -18,13 +27,52 @@ import { RouteFallback } from "@/widgets/route-fallback";
 
 const PAGE = "mx-auto w-full max-w-[1520px] px-5 pt-6 pb-16 md:px-10";
 
-const copyLink = async () => {
-  try {
-    await navigator.clipboard.writeText(window.location.href);
-    toast.success("Link copied");
-  } catch {
-    toast.error("Couldn't copy the link. Copy it from the address bar.");
-  }
+// useClipboard falls back to execCommand where the Clipboard API is missing; `copied` resets after 1.5s.
+const CopyLinkButton = () => {
+  const { copied, copy } = useClipboard();
+  const [linkRef, linkTrigger] = useIconAnimation<LinkIconHandle>();
+
+  const copyLink = async () => {
+    try {
+      await copy(window.location.href);
+      toast.success("Link copied");
+    } catch {
+      toast.error("Couldn't copy the link. Copy it from the address bar.");
+    }
+  };
+
+  return (
+    <Button
+      className="self-start md:self-auto"
+      onClick={copyLink}
+      variant="outline"
+      {...linkTrigger}
+    >
+      {copied ? (
+        <CheckIcon aria-hidden ref={playOnMount} />
+      ) : (
+        <LinkIcon aria-hidden ref={linkRef} />
+      )}
+      {copied ? "Copied" : "Copy link"}
+    </Button>
+  );
+};
+
+const PageUrlLink = ({ href }: { href: string }) => {
+  const [arrowRef, arrowTrigger] = useIconAnimation<ArrowUpRightIconHandle>();
+
+  return (
+    <a
+      className="text-muted-foreground hover:text-foreground inline-flex max-w-full items-center gap-1 font-mono text-xs underline decoration-current/30 underline-offset-4"
+      href={href}
+      rel="noopener noreferrer"
+      target="_blank"
+      {...arrowTrigger}
+    >
+      <span className="truncate">{href}</span>
+      <ArrowUpRightIcon aria-hidden ref={arrowRef} size={14} />
+    </a>
+  );
 };
 
 export const SharedReportPage = ({ reportId }: { reportId: string }) => {
@@ -79,26 +127,9 @@ export const SharedReportPage = ({ reportId }: { reportId: string }) => {
           <h1 className="font-display text-headline md:text-title text-balance break-words">
             {data.title}
           </h1>
-          {data.pageUrl ? (
-            <a
-              className="text-muted-foreground hover:text-foreground inline-flex max-w-full items-center gap-1 font-mono text-xs underline decoration-current/30 underline-offset-4"
-              href={data.pageUrl}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              <span className="truncate">{data.pageUrl}</span>
-              <ArrowUpRight aria-hidden className="size-3.5 shrink-0" />
-            </a>
-          ) : null}
+          {data.pageUrl ? <PageUrlLink href={data.pageUrl} /> : null}
         </div>
-        <Button
-          className="self-start md:self-auto"
-          onClick={copyLink}
-          variant="outline"
-        >
-          <Link2 aria-hidden />
-          Copy link
-        </Button>
+        <CopyLinkButton />
       </div>
       <ReportTimeline
         devtools={devtools}

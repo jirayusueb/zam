@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@orpc/client": "catalog:",
+    "@shined/react-use": "^1.14.0",
     "@zam/api": "workspace:*",
     "@zam/capture": "workspace:*",
     "@zam/ui": "workspace:*",

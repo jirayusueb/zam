@@ -1,21 +1,16 @@
+import { useNow } from "@shined/react-use";
 import { Badge } from "@zam/ui/components/badge";
-import { useEffect, useState } from "react";
+
+const TICK_MS = 1000;
 
 interface CaptureStatusProps {
   startedAt: number;
 }
 
 export const CaptureStatus = ({ startedAt }: CaptureStatusProps) => {
-  const [now, setNow] = useState(() => Date.now());
+  const now = useNow({ interval: TICK_MS }).getTime();
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const elapsedSeconds = Math.max(0, Math.floor((now - startedAt) / 1000));
+  const elapsedSeconds = Math.max(0, Math.floor((now - startedAt) / TICK_MS));
   const minutes = Math.floor(elapsedSeconds / 60);
   const seconds = elapsedSeconds % 60;
 

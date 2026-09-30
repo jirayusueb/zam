@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { buttonVariants } from "@zam/ui/components/button";
-import { ArrowRight } from "lucide-react";
+import { ArrowRightIcon } from "@zam/ui/components/icons/arrow-right";
+import type { ArrowRightIconHandle } from "@zam/ui/components/icons/arrow-right";
+import { useIconAnimation } from "@zam/ui/hooks/use-icon-animation";
 
 import { authClient } from "@/shared/api/auth-client";
 
@@ -13,16 +15,31 @@ const STORED_BY_ZAM = [
   "Secret-looking query parameters, replaced with [REDACTED]",
 ] as const;
 
-const PrimaryAction = () => {
+/** `shared`: morphs into the login button on navigation. View-transition names must be unique, so only one CTA per page sets it. */
+const PrimaryAction = ({ shared = false }: { shared?: boolean }) => {
   const { data: session } = authClient.useSession();
+  const [arrowRef, arrowTrigger] = useIconAnimation<ArrowRightIconHandle>();
 
-  return session ? (
-    <Link className={buttonVariants({ size: "lg" })} to="/dashboard">
-      Open your reports
-      <ArrowRight aria-hidden />
-    </Link>
-  ) : (
-    <Link className={buttonVariants({ size: "lg" })} to="/login">
+  if (session) {
+    return (
+      <Link
+        className={buttonVariants({ size: "lg" })}
+        to="/dashboard"
+        {...arrowTrigger}
+      >
+        Open your reports
+        <ArrowRightIcon aria-hidden ref={arrowRef} />
+      </Link>
+    );
+  }
+  return (
+    <Link
+      className={buttonVariants({
+        className: shared && "[view-transition-name:sign-in-cta]",
+        size: "lg",
+      })}
+      to="/login"
+    >
       Get started with Google
     </Link>
   );
@@ -42,7 +59,7 @@ export const HomePage = () => (
           Drive.
         </p>
         <div className="flex flex-wrap gap-3">
-          <PrimaryAction />
+          <PrimaryAction shared />
           <a
             className={buttonVariants({ size: "lg", variant: "outline" })}
             href="#sample"

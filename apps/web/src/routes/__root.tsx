@@ -9,6 +9,7 @@ import {
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { Toaster } from "@zam/ui/components/sonner";
 import { TooltipProvider } from "@zam/ui/components/tooltip";
+import { MotionConfig } from "motion/react";
 
 import type { orpc } from "@/shared/api/orpc";
 import { Header } from "@/widgets/header";
@@ -26,13 +27,19 @@ const RootDocument = () => (
       <HeadContent />
     </head>
     <body>
-      <TooltipProvider>
-        <div className="flex min-h-svh flex-col">
-          <Header />
-          <Outlet />
-        </div>
-        <Toaster richColors />
-      </TooltipProvider>
+      {/* Honour the OS reduced-motion setting for every motion animation (animated icons, report wall). */}
+      <MotionConfig reducedMotion="user">
+        <TooltipProvider>
+          <div className="flex min-h-svh flex-col">
+            <Header />
+            {/* Route content is the "page" view-transition layer; the header stays in root and holds still. */}
+            <div className="flex flex-1 flex-col [view-transition-name:page]">
+              <Outlet />
+            </div>
+          </div>
+          <Toaster richColors />
+        </TooltipProvider>
+      </MotionConfig>
       <TanStackRouterDevtools position="bottom-left" />
       <ReactQueryDevtools buttonPosition="bottom-right" position="bottom" />
       <Scripts />

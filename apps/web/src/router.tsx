@@ -17,6 +17,8 @@ export const getRouter = () => {
     defaultNotFoundComponent: NotFoundPage,
     defaultPendingComponent: () => <Loader />,
     defaultPreloadStaleTime: 0,
+    // Wraps each navigation in document.startViewTransition; animation lives in app/styles/index.css.
+    defaultViewTransition: true,
     routeTree,
     scrollRestoration: true,
   });

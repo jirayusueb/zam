@@ -1,7 +1,16 @@
+import { useClipboard } from "@shined/react-use";
 import { Link, useRouter } from "@tanstack/react-router";
 import type { ErrorComponentProps } from "@tanstack/react-router";
 import { Button, buttonVariants } from "@zam/ui/components/button";
-import { Copy, RotateCw } from "lucide-react";
+import { CheckIcon } from "@zam/ui/components/icons/check";
+import { CopyIcon } from "@zam/ui/components/icons/copy";
+import type { CopyIconHandle } from "@zam/ui/components/icons/copy";
+import { RotateCWIcon } from "@zam/ui/components/icons/rotate-cw";
+import type { RotateCWIconHandle } from "@zam/ui/components/icons/rotate-cw";
+import {
+  playOnMount,
+  useIconAnimation,
+} from "@zam/ui/hooks/use-icon-animation";
 import { toast } from "sonner";
 
 import { RouteFallback } from "@/widgets/route-fallback";
@@ -13,12 +22,13 @@ export const ErrorPage = ({ error }: ErrorComponentProps) => {
   const router = useRouter();
   const message = messageOf(error);
   const stack = error instanceof Error ? error.stack : undefined;
+  const { copied, copy } = useClipboard();
+  const [retryRef, retryTrigger] = useIconAnimation<RotateCWIconHandle>();
+  const [copyIconRef, copyIconTrigger] = useIconAnimation<CopyIconHandle>();
 
   const copyDetails = async () => {
     try {
-      await navigator.clipboard.writeText(
-        `${message}\n${window.location.href}`
-      );
+      await copy(`${message}\n${window.location.href}`);
       toast.success("Error details copied");
     } catch {
       toast.error("Couldn't copy. Select the error text and copy it by hand.");
@@ -29,13 +39,26 @@ export const ErrorPage = ({ error }: ErrorComponentProps) => {
     <RouteFallback
       actions={
         <>
-          <Button onClick={() => router.invalidate()} size="lg">
-            <RotateCw aria-hidden />
+          <Button
+            onClick={() => router.invalidate()}
+            size="lg"
+            {...retryTrigger}
+          >
+            <RotateCWIcon aria-hidden ref={retryRef} />
             Try again
           </Button>
-          <Button onClick={copyDetails} size="lg" variant="outline">
-            <Copy aria-hidden />
-            Copy error details
+          <Button
+            onClick={copyDetails}
+            size="lg"
+            variant="outline"
+            {...copyIconTrigger}
+          >
+            {copied ? (
+              <CheckIcon aria-hidden ref={playOnMount} />
+            ) : (
+              <CopyIcon aria-hidden ref={copyIconRef} />
+            )}
+            {copied ? "Copied" : "Copy error details"}
           </Button>
           <Link
             className={buttonVariants({ size: "lg", variant: "ghost" })}

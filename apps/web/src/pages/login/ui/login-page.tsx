@@ -12,7 +12,11 @@ export const LoginPage = ({ redirect }: { redirect?: string }) => (
           network log.
         </p>
       </div>
-      <GoogleSignInButton callbackURL={redirect} />
+      {/* Pairs with the home hero CTA: the button you clicked becomes this one. */}
+      <GoogleSignInButton
+        callbackURL={redirect}
+        className="[view-transition-name:sign-in-cta]"
+      />
     </div>
   </main>
 );

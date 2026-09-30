@@ -27,9 +27,10 @@
     },
     "apps/extension": {
       "name": "extension",
-      "version": "0.0.0",
+      "version": "0.1.1",
       "dependencies": {
         "@orpc/client": "catalog:",
+        "@shined/react-use": "^1.14.0",
         "@zam/api": "workspace:*",
         "@zam/capture": "workspace:*",
         "@zam/ui": "workspace:*",
@@ -59,6 +60,7 @@
         "@orpc/server": "catalog:",
         "@orpc/tanstack-query": "^1.15.0",
         "@orpc/zod": "catalog:",
+        "@shined/react-use": "^1.14.0",
         "@tailwindcss/vite": "^4.3.3",
         "@tanstack/react-query": "^5.102.8",
         "@tanstack/react-router": "^1.170.32",
@@ -197,6 +199,7 @@
         "embla-carousel-react": "^8.6.0",
         "input-otp": "^1.5.0",
         "lucide-react": "catalog:",
+        "motion": "^13.4.6",
         "next-themes": "catalog:",
         "react": "catalog:",
         "react-day-picker": "^10.0.2",
@@ -1038,6 +1041,8 @@
     "@sec-ant/readable-stream": ["@sec-ant/readable-stream@0.4.1", "", {}, "sha512-831qok9r2t8AlxLko40y2ebgSDhenenCatLVeW/uBtnHPyhHOvG0C7TvfgecV+wHzIm5KUICgzmVpWS+IMEAeg=="],
 
     "@shadcn/react": ["@shadcn/react@0.3.1", "", { "peerDependencies": { "@types/react": ">=19", "react": ">=19" }, "optionalPeers": ["@types/react", "react"] }, "sha512-2gOR0HDMtWeRsCZfNDaU0YDFdgH3zsDQ6lz67Fv/y/qjY9y+R8kJqAn6q56phqv7/zHi0wqURjntrNO9zL7vnQ=="],
+
+    "@shined/react-use": ["@shined/react-use@1.14.0", "", { "peerDependencies": { "@types/react": ">= 16.8.0", "@types/react-dom": ">= 16.8.0", "@types/web-bluetooth": "*", "react": ">= 16.8.0", "react-dom": ">= 16.8.0" }, "optionalPeers": ["@types/react", "@types/react-dom", "@types/web-bluetooth", "react", "react-dom"] }, "sha512-MpWPuly97SXcaxcN6vVV6cVFpwnoHSFE+xDgGJPIpgs31G7ghGqYe113e2NiImhcHYfOxR6AhBAcsU5rarkrrQ=="],
 
     "@simple-libs/child-process-utils": ["@simple-libs/child-process-utils@2.0.0", "", { "dependencies": { "@simple-libs/stream-utils": "^2.0.0" } }, "sha512-dvNoRKLijXnD0XoJAz94pbNuB5GQgDr55UhpSPhffDkTT0Cmcqh9jSCOtwfT2d4H6MI9E7c4SgtMuJXZ6F3c6A=="],
 
