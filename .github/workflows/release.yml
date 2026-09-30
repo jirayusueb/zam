@@ -1,0 +1,54 @@
+name: Release
+
+# Run from the Actions tab. Tags pushed with GITHUB_TOKEN don't trigger other
+# workflows, so the extension and deploy workflows are called from here.
+on:
+  workflow_dispatch:
+    inputs:
+      increment:
+        description: Version bump (auto = from conventional commits)
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - run: bun run release --ci ${{ inputs.increment != 'auto' && inputs.increment || '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - id: tag
+        run: echo "tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
+
+  extension:
+    needs: release
+    uses: ./.github/workflows/release-extension.yml
+    with:
+      tag: ${{ needs.release.outputs.tag }}
+
+  deploy:
+    needs: release
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit
+    with:
+      ref: ${{ needs.release.outputs.tag }}
