@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.0](https://github.com/jirayusueb/zam/compare/v0.1.1...v0.2.0) (2026-09-30)
+
+### Features
+
+* **web:** view transitions, animated icons, auth-only dashboard link ([8c3ca1f](https://github.com/jirayusueb/zam/commit/8c3ca1ffc428bfd068e928c39cd15ef57946315b))
+
 ## [0.1.1](https://github.com/jirayusueb/zam/compare/v0.1.0...v0.1.1) (2026-09-30)
 
 ## 0.1.0 (2026-09-30)
