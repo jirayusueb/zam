@@ -14,10 +14,8 @@
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
-    "@types/pg": "^8.23.1",
     "@zam/auth": "workspace:*",
-    "@zam/db": "workspace:*",
-    "drizzle-orm": "catalog:",
+    "@zam/capture": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

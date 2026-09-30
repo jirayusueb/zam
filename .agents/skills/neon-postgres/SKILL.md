@@ -1,15 +1,7 @@
 ---
 name: neon-postgres
 description: >-
-  Guides and best practices for working with Lakebase Postgres on Neon:
-  connections, pooled vs direct, schema migrations, branching, autoscaling,
-  scale-to-zero, instant restore, read replicas, IP allow lists, logical
-  replication, and Lakebase Search. Use when the work is an existing
-  DATABASE_URL, SQL, schema, inspect, or search. New backends, Auth, files,
-  Functions, and LLM calls go to the parent `neon` skill. Also use for
-  "@neondatabase/serverless", "@neondatabase/neon-js", "neon inspect db",
-  "semantic search", "vector search", "full-text search", "BM25", or
-  "hybrid search".
+  Guides and best practices for working with Lakebase Postgres on Neon: connections, pooled vs direct, schema migrations, branching, autoscaling, scale-to-zero, instant restore, read replicas, IP allow lists, logical replication, and Lakebase Search. Use when the work is an existing DATABASE_URL, SQL, schema, inspect, or search. New backends, Auth, files, Functions, and LLM calls go to the parent `neon` skill. Also use for "@neondatabase/serverless", "@neondatabase/neon-js", "neon inspect db", "semantic search", "vector search", "full-text search", "BM25", or "hybrid search".
 metadata:
   parent: neon
   source: https://github.com/neondatabase/agent-skills/tree/main/skills/neon-postgres
@@ -125,16 +117,16 @@ When using Neon MCP, call `inspect_database` with `projectId` and one `check`. P
 
 ### Pick the Diagnostic
 
-| Symptom or question                            | Checks                               |
-| ---------------------------------------------- | ------------------------------------ |
-| Which relations consume storage?               | `table-sizes`, `index-sizes`         |
-| Is an index unused or a table scanned heavily? | `unused-indexes`, `seq-scans`        |
-| What has run for 5+ minutes or holds locks?    | `long-running-queries`, `locks`      |
-| Which queries consume the most total time?     | `outliers`                           |
-| Which queries run most often?                  | `calls`                              |
-| Does the active data fit in compute cache?     | `lfc-hit-rate`, `working-set`        |
-| Is autovacuum behind or is space wasted?       | `vacuum-stats`, `bloat`              |
-| Is logical replication healthy?                | `replication-slots`, `subscriptions` |
+| Symptom or question | Checks |
+| --- | --- |
+| Which relations consume storage? | `table-sizes`, `index-sizes` |
+| Is an index unused or a table scanned heavily? | `unused-indexes`, `seq-scans` |
+| What has run for 5+ minutes or holds locks? | `long-running-queries`, `locks` |
+| Which queries consume the most total time? | `outliers` |
+| Which queries run most often? | `calls` |
+| Does the active data fit in compute cache? | `lfc-hit-rate`, `working-set` |
+| Is autovacuum behind or is space wasted? | `vacuum-stats`, `bloat` |
+| Is logical replication healthy? | `replication-slots`, `subscriptions` |
 
 Do not confuse these checks:
 

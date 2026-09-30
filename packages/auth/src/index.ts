@@ -4,23 +4,39 @@ import * as schema from "@zam/db/schema/auth";
 import { betterAuth } from "better-auth";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 
-export type AuthConfig = {
+export interface AuthConfig {
   BETTER_AUTH_URL: string;
   BETTER_AUTH_SECRET: string;
-};
+  GOOGLE_CLIENT_ID: string;
+  GOOGLE_CLIENT_SECRET: string;
+}
 
-export function createAuth(env: AuthConfig, database: Database) {
-  return betterAuth({
+/** Non-sensitive scope: per-file access to files this app creates. */
+export const GOOGLE_DRIVE_FILE_SCOPE =
+  "https://www.googleapis.com/auth/drive.file";
+
+export const createAuth = (env: AuthConfig, database: Database) =>
+  betterAuth({
+    account: { encryptOAuthTokens: true },
+    baseURL: env.BETTER_AUTH_URL,
     database: drizzleAdapter(database, {
       provider: "pg",
       schema,
     }),
-    trustedOrigins: [env.BETTER_AUTH_URL],
-    emailAndPassword: { enabled: true },
-    secret: env.BETTER_AUTH_SECRET,
-    baseURL: env.BETTER_AUTH_URL,
     plugins: [tanstackStartCookies()],
+    secret: env.BETTER_AUTH_SECRET,
+    socialProviders: {
+      google: {
+        // offline + consent guarantees Google issues a refresh token.
+        accessType: "offline",
+        clientId: env.GOOGLE_CLIENT_ID,
+        clientSecret: env.GOOGLE_CLIENT_SECRET,
+        prompt: "select_account consent",
+        scope: [GOOGLE_DRIVE_FILE_SCOPE],
+      },
+    },
+    trustedOrigins: [env.BETTER_AUTH_URL],
   });
-}
 
-export type Session = ReturnType<typeof createAuth>["$Infer"]["Session"];
+export type Auth = ReturnType<typeof createAuth>;
+export type Session = Auth["$Infer"]["Session"];

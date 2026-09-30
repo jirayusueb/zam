@@ -1,0 +1,1 @@
+ALTER TABLE "bug_report" ADD COLUMN "search_tsv" tsvector GENERATED ALWAYS AS (to_tsvector('english', "title" || ' ' || coalesce("page_url", ''))) STORED;

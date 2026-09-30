@@ -4,9 +4,7 @@ import { drizzle } from "drizzle-orm/neon-http";
 import type { DatabaseConfig } from "./config";
 import { relations } from "./relations";
 
-export function createDb(env: DatabaseConfig) {
-  const sql = neon(env.DATABASE_URL);
-  return drizzle({ client: sql, relations });
-}
+export const createDb = (env: DatabaseConfig) =>
+  drizzle({ client: neon(env.DATABASE_URL), relations });
 
 export type Database = ReturnType<typeof createDb>;

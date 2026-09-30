@@ -1,5 +1,6 @@
 {
   "name": "zam",
+  "version": "0.0.0",
   "private": true,
   "workspaces": {
     "packages": [
@@ -44,18 +45,23 @@
     "destroy": "vp run --filter @zam/infra destroy",
     "env:generate": "varlock codegen --path ./apps/web/ && varlock codegen --path ./packages/db/",
     "postinstall": "varlock codegen --path ./apps/web/ && varlock codegen --path ./packages/db/",
-    "fix": "ultracite fix"
+    "fix": "ultracite fix",
+    "release": "release-it"
   },
   "dependencies": {
     "zod": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260906.1",
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
+    "@release-it/conventional-changelog": "^12.0.2",
     "@types/node": "^26.4.1",
     "@zam/config": "workspace:*",
     "lefthook": "latest",
     "oxfmt": "latest",
     "oxlint": "latest",
+    "release-it": "^21.1.0",
     "rolldown": "1.2.7",
     "typescript": "catalog:",
     "ultracite": "7.11.0",
@@ -63,6 +69,7 @@
     "vite-plus": "0.3.1"
   },
   "overrides": {
+    "@effect/platform-node-shared": "4.0.0-rc.115",
     "vite": "npm:@voidzero-dev/vite-plus-core@0.3.1"
   },
   "packageManager": "bun@1.4.2"

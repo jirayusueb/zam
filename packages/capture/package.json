@@ -1,0 +1,21 @@
+{
+  "name": "@zam/capture",
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "check-types": "tsc -b",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@zam/auth": "workspace:*",
+    "@zam/db": "workspace:*",
+    "drizzle-orm": "catalog:"
+  },
+  "devDependencies": {
+    "@zam/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

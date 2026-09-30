@@ -1,82 +1,116 @@
 @import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/source-serif-4/opsz.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+/* Thai glyphs only: Plex Sans Thai sits after the Latin face in every stack, so it renders only characters the Latin face lacks. */
+@import "@fontsource/ibm-plex-sans-thai/thai-400.css";
+@import "@fontsource/ibm-plex-sans-thai/thai-500.css";
+@import "@fontsource/ibm-plex-sans-thai/thai-600.css";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @source "../../../apps/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (@media (prefers-color-scheme: dark));
 
+/* Palette taken literally from intentapp.dev (see PRODUCT.md › Brand Commitments). */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --background: #f0f0ee;
+  --foreground: #080808;
+  --card: #fff;
+  --card-foreground: #080808;
+  --popover: #fff;
+  --popover-foreground: #080808;
+  --primary: #080808;
+  --primary-foreground: #fff;
+  --secondary: #e1dfde;
+  --secondary-foreground: #080808;
+  --muted: #e1dfde;
+  --muted-foreground: #525250;
+  --accent: #e1dfde;
+  --accent-foreground: #080808;
+  --brand: #ddec61;
+  --brand-foreground: #080808;
   --destructive: oklch(0.58 0.22 27);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --border: #0808081f;
+  --input: #08080833;
+  --ring: #080808;
+  --chart-1: #ddec61;
+  --chart-2: #c5d357;
+  --chart-3: #979a73;
+  --chart-4: #717453;
+  --chart-5: #525250;
+  --radius: 0.75rem;
+  --sidebar: #f0f0ee;
+  --sidebar-foreground: #080808;
+  --sidebar-primary: #080808;
+  --sidebar-primary-foreground: #fff;
+  --sidebar-accent: #e1dfde;
+  --sidebar-accent-foreground: #080808;
+  --sidebar-border: #0808081f;
+  --sidebar-ring: #080808;
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.87 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.371 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --background: #161616;
+    --foreground: #f0f0ee;
+    --card: #222222;
+    --card-foreground: #f0f0ee;
+    --popover: #292929;
+    --popover-foreground: #f0f0ee;
+    --primary: #f0f0ee;
+    --primary-foreground: #080808;
+    --secondary: #3d3d3c;
+    --secondary-foreground: #f0f0ee;
+    --muted: #2e2e2d;
+    --muted-foreground: #cfcdcb;
+    --accent: #3d3d3c;
+    --accent-foreground: #f0f0ee;
+    --brand: #ddec61;
+    --brand-foreground: #080808;
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: #ffffff24;
+    --input: #3d3d3c;
+    --ring: #ddec61;
+    --chart-1: #ddec61;
+    --chart-2: #c5d357;
+    --chart-3: #979a73;
+    --chart-4: #717453;
+    --chart-5: #cfcdcb;
+    --sidebar: #080808;
+    --sidebar-foreground: #f0f0ee;
+    --sidebar-primary: #ddec61;
+    --sidebar-primary-foreground: #080808;
+    --sidebar-accent: #ffffff14;
+    --sidebar-accent-foreground: #f0f0ee;
+    --sidebar-border: #3d3d3c;
+    --sidebar-ring: #ddec61;
+  }
 }
 
 @theme inline {
-  --font-sans: "Inter Variable", sans-serif;
+  --font-sans:
+    "Inter Variable", "IBM Plex Sans Thai", ui-sans-serif, system-ui, sans-serif;
+  --font-display:
+    "Source Serif 4 Variable", "IBM Plex Sans Thai", ui-serif, Georgia, serif;
+  --font-mono:
+    "IBM Plex Mono", "IBM Plex Sans Thai", ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+  --text-display: 2.75rem;
+  --text-display--line-height: 0.95;
+  --text-display--letter-spacing: -0.04em;
+  --text-title: 2.5rem;
+  --text-title--line-height: 1;
+  --text-title--letter-spacing: -0.035em;
+  --text-headline: 2rem;
+  --text-headline--line-height: 0.95;
+  --text-headline--letter-spacing: -0.04em;
+  --ease-intent: cubic-bezier(0.6, 0, 0.1, 1);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -122,9 +156,13 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply font-sans bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
   html {
     @apply font-sans;
+    scrollbar-color: var(--muted-foreground) transparent;
+  }
+  ::selection {
+    @apply bg-brand text-brand-foreground;
   }
 }

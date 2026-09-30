@@ -1,0 +1,27 @@
+name: Release extension
+
+# Tags are pushed by `bun run release` (release-it), which also bumps the extension version.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  extension:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      WXT_WEB_URL: ${{ vars.WXT_WEB_URL }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: bun run zip && bun run zip:firefox
+        working-directory: apps/extension
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: apps/extension/.output/*.zip

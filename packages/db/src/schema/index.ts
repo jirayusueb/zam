@@ -1,3 +1,4 @@
+// oxlint-disable-next-line oxc/no-barrel-file -- drizzle schema entry (drizzle.config.ts, relations.ts)
 export * from "./auth";
-export * from "./todo";
-export {};
+export * from "./bug-report";
+export * from "./comment";

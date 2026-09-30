@@ -4,17 +4,17 @@ import viteReact from "@vitejs/plugin-react";
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
-  server: {
-    port: 3001,
-  },
   build: {
     rollupOptions: {
       // resolved by workerd at runtime; node builds cannot bundle it
       external: ["cloudflare:workers"],
     },
   },
+  plugins: [tailwindcss(), tanstackStart(), viteReact()],
   resolve: {
     tsconfigPaths: true,
   },
-  plugins: [tailwindcss(), tanstackStart(), viteReact()],
+  server: {
+    port: 3010,
+  },
 });

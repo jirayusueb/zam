@@ -1,0 +1,59 @@
+@import "@zam/ui/globals.css";
+
+@theme {
+  /* Home page report wall: each column is two copies of its cards, so -50% loops seamlessly. */
+  --animate-wall: wall-drift var(--wall-duration, 80s) linear infinite;
+
+  @keyframes wall-drift {
+    to {
+      transform: translateY(-50%);
+    }
+  }
+}
+
+/* Comment markdown (Tiptap output); no typography plugin installed. */
+@layer components {
+  .comment-markdown .tiptap {
+    @apply text-sm leading-relaxed break-words outline-none;
+  }
+  .comment-markdown .tiptap > * + * {
+    @apply mt-2;
+  }
+  .comment-markdown h1 {
+    @apply text-lg font-semibold;
+  }
+  .comment-markdown h2 {
+    @apply text-base font-semibold;
+  }
+  .comment-markdown h3 {
+    @apply font-semibold;
+  }
+  .comment-markdown ul {
+    @apply list-disc pl-5;
+  }
+  .comment-markdown ol {
+    @apply list-decimal pl-5;
+  }
+  .comment-markdown blockquote {
+    @apply text-muted-foreground border-l-2 pl-3;
+  }
+  .comment-markdown a {
+    @apply underline decoration-current/30 underline-offset-4;
+  }
+  .comment-markdown code {
+    @apply bg-muted rounded px-1 py-0.5 font-mono text-xs;
+  }
+  .comment-markdown pre {
+    @apply bg-muted overflow-x-auto rounded-lg p-3;
+  }
+  .comment-markdown pre code {
+    @apply bg-transparent p-0;
+  }
+  .comment-markdown hr {
+    @apply border-border;
+  }
+  .comment-markdown p.is-editor-empty:first-child::before {
+    @apply text-muted-foreground pointer-events-none float-left h-0;
+    content: attr(data-placeholder);
+  }
+}

@@ -1,7 +1,7 @@
 import type { Session } from "@zam/auth";
-import type { Database } from "@zam/db";
+import type { CaptureUseCases } from "@zam/capture/application/capture-use-cases";
 
-export type Context = {
+export interface Context {
   session: Session | null;
-  db: Database;
-};
+  capture: CaptureUseCases;
+}

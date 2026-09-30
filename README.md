@@ -35,7 +35,7 @@ Then, run the development server:
 bun run dev
 ```
 
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the fullstack application.
+Open [http://localhost:3010](http://localhost:3010) in your browser to see the fullstack application.
 
 ## UI Customization
 
@@ -92,6 +92,16 @@ Deploys are staged and default to a personal `dev_<username>` stage. For product
 ```bash
 cd packages/infra && bunx alchemy deploy --stage production
 ```
+
+### Release & CI
+
+Commits must follow [Conventional Commits](https://www.conventionalcommits.org) (enforced by commitlint in the `commit-msg` hook and on PRs).
+
+`bun run release` (needs `GITHUB_TOKEN`) bumps the version, updates `CHANGELOG.md`, tags `vX.Y.Z`, and creates a GitHub release. Pushing the tag triggers `.github/workflows/deploy.yml`, which deploys the `production` stage. It can also be run manually from the Actions tab.
+
+Add these secrets to the `production` GitHub environment: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `NEON_API_KEY`, `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
+
+The same tag triggers `.github/workflows/release-extension.yml`, which builds the Chrome and Firefox zips and attaches them to the GitHub release. release-it keeps `apps/extension/package.json` at the same version. Set `WXT_WEB_URL` (the production web URL) as a variable in the `production` environment.
 
 ## Git Hooks and Formatting
 
