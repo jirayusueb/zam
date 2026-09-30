@@ -1,6 +1,7 @@
 {
   "references": [{ "path": "../../packages/api" }],
   "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules", "src/**/*.test.ts"],
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "react-jsx",

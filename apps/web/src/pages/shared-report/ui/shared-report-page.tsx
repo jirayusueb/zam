@@ -2,8 +2,13 @@ import { useClipboard } from "@shined/react-use";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Button, buttonVariants } from "@zam/ui/components/button";
-import { ArrowUpRightIcon } from "@zam/ui/components/icons/arrow-up-right";
-import type { ArrowUpRightIconHandle } from "@zam/ui/components/icons/arrow-up-right";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@zam/ui/components/card";
 import { CheckIcon } from "@zam/ui/components/icons/check";
 import { LinkIcon } from "@zam/ui/components/icons/link";
 import type { LinkIconHandle } from "@zam/ui/components/icons/link";
@@ -16,9 +21,9 @@ import { toast } from "sonner";
 
 import {
   formatOffset,
-  ReportStatusBadge,
-  ReportTimeline,
+  PageUrlLink,
   ReportPlayback,
+  ReportStatusBadge,
   sharedBugReportQuery,
 } from "@/entities/bug-report";
 import { ReportComments } from "@/widgets/report-comments";
@@ -26,6 +31,7 @@ import { ReportDevtools } from "@/widgets/report-devtools";
 import { RouteFallback } from "@/widgets/route-fallback";
 
 const PAGE = "mx-auto w-full max-w-[1520px] px-5 pt-6 pb-16 md:px-10";
+const GRID = "grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_380px]";
 
 // useClipboard falls back to execCommand where the Clipboard API is missing; `copied` resets after 1.5s.
 const CopyLinkButton = () => {
@@ -43,7 +49,7 @@ const CopyLinkButton = () => {
 
   return (
     <Button
-      className="self-start md:self-auto"
+      className="w-full"
       onClick={copyLink}
       variant="outline"
       {...linkTrigger}
@@ -53,25 +59,8 @@ const CopyLinkButton = () => {
       ) : (
         <LinkIcon aria-hidden ref={linkRef} />
       )}
-      {copied ? "Copied" : "Copy link"}
+      {copied ? "Copied" : "Copy share link"}
     </Button>
-  );
-};
-
-const PageUrlLink = ({ href }: { href: string }) => {
-  const [arrowRef, arrowTrigger] = useIconAnimation<ArrowUpRightIconHandle>();
-
-  return (
-    <a
-      className="text-muted-foreground hover:text-foreground inline-flex max-w-full items-center gap-1 font-mono text-xs underline decoration-current/30 underline-offset-4"
-      href={href}
-      rel="noopener noreferrer"
-      target="_blank"
-      {...arrowTrigger}
-    >
-      <span className="truncate">{href}</span>
-      <ArrowUpRightIcon aria-hidden ref={arrowRef} size={14} />
-    </a>
   );
 };
 
@@ -81,11 +70,15 @@ export const SharedReportPage = ({ reportId }: { reportId: string }) => {
   if (isLoading) {
     return (
       <main aria-busy className={`${PAGE} flex flex-col gap-6`}>
-        <Skeleton className="h-10 w-2/3 max-w-xl" />
-        <Skeleton className="h-2 w-full" />
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-          <Skeleton className="aspect-video rounded-2xl" />
-          <Skeleton className="h-[480px] rounded-2xl" />
+        <div className={GRID}>
+          <div className="flex min-w-0 flex-col gap-4">
+            <Skeleton className="aspect-video rounded-2xl" />
+            <Skeleton className="h-[520px] rounded-2xl" />
+          </div>
+          <div className="flex min-w-0 flex-col gap-4">
+            <Skeleton className="h-56 rounded-2xl" />
+            <Skeleton className="h-32 rounded-2xl" />
+          </div>
         </div>
       </main>
     );
@@ -111,50 +104,92 @@ export const SharedReportPage = ({ reportId }: { reportId: string }) => {
     );
   }
 
-  const { devtools, recording } = data;
+  const { devtools, environment, recording, steps, storage } = data;
 
   return (
     <main className={`${PAGE} flex flex-col gap-6`}>
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div className="flex min-w-0 flex-col gap-3">
-          <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs tabular-nums">
-            <ReportStatusBadge status={data.status} />
-            <time dateTime={data.createdAt.toISOString()}>
-              {data.createdAt.toLocaleString()}
-            </time>
-            <span>{formatOffset(recording.durationMs)} recorded</span>
-          </div>
-          <h1 className="font-display text-headline md:text-title text-balance break-words">
-            {data.title}
-          </h1>
-          {data.pageUrl ? <PageUrlLink href={data.pageUrl} /> : null}
-        </div>
-        <CopyLinkButton />
-      </div>
-      <ReportTimeline
-        devtools={devtools}
-        durationMs={recording.durationMs}
-        startedAt={recording.startedAt}
-      />
       <ReportPlayback.Provider
         durationMs={recording.durationMs}
         startedAt={recording.startedAt}
       >
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-          <ReportPlayback.Video
-            src={
-              data.status === "published"
-                ? `/api/reports/${encodeURIComponent(data.reportId)}/video`
-                : null
-            }
-            title={data.title}
-          />
-          <ReportDevtools devtools={devtools} />
+        <div className={GRID}>
+          <div className="flex min-w-0 flex-col gap-4">
+            <ReportPlayback.Video
+              devtools={devtools}
+              src={
+                data.status === "published"
+                  ? `/api/reports/${encodeURIComponent(data.reportId)}/video`
+                  : null
+              }
+              title={data.title}
+            />
+            <div className="h-[520px] overflow-hidden rounded-2xl border">
+              <ReportDevtools
+                devtools={devtools}
+                environment={environment}
+                pageUrl={data.pageUrl}
+                recording={recording}
+                steps={steps}
+                storage={storage}
+              />
+            </div>
+          </div>
+          <div className="flex min-w-0 flex-col gap-4">
+            <Card>
+              <CardHeader>
+                <CardAction>
+                  <ReportStatusBadge status={data.status} />
+                </CardAction>
+                <CardTitle className="font-display text-headline text-balance break-words">
+                  {data.title}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                {data.pageUrl ? <PageUrlLink href={data.pageUrl} /> : null}
+                <dl className="text-muted-foreground grid grid-cols-[5rem_1fr] gap-y-1.5 text-xs">
+                  <dt>Created</dt>
+                  <dd className="text-foreground">
+                    {data.createdAt.toLocaleString()}
+                  </dd>
+                  <dt>Duration</dt>
+                  <dd className="text-foreground">
+                    {formatOffset(recording.durationMs)}
+                  </dd>
+                </dl>
+                <CopyLinkButton />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Details</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-1.5 text-sm">
+                {environment ? (
+                  <>
+                    <p>
+                      <span className="text-muted-foreground">Browser </span>
+                      {environment.browser}
+                    </p>
+                    <p>
+                      <span className="text-muted-foreground">OS </span>
+                      {environment.os}
+                    </p>
+                    <p>
+                      <span className="text-muted-foreground">Screen </span>
+                      {environment.screen.width} × {environment.screen.height}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground text-xs italic">
+                    Environment wasn&apos;t captured for this report.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+            <ReportComments reportId={data.reportId} />
+          </div>
         </div>
       </ReportPlayback.Provider>
-      <div className="max-w-3xl">
-        <ReportComments reportId={data.reportId} />
-      </div>
     </main>
   );
 };

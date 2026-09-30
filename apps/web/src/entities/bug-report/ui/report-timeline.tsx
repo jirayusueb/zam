@@ -2,17 +2,12 @@ import type { DevtoolsSnapshot } from "@zam/capture/domain/value-objects/devtool
 import { cn } from "@zam/ui/lib/utils";
 
 import { formatOffset } from "../lib/format-offset";
-import { isFailedRequest } from "../lib/is-failed-request";
+import { isProblemMarker, timelineMarkers } from "../lib/timeline-markers";
+import type { TimelineMarker } from "../lib/timeline-markers";
 
 const PERCENT = 100;
 
-interface Marker {
-  at: number;
-  kind: "error" | "warn" | "failed";
-  label: string;
-}
-
-const MARKER_CLASS: Record<Marker["kind"], string> = {
+const MARKER_CLASS: Record<TimelineMarker["kind"], string> = {
   error: "bg-destructive",
   failed: "bg-destructive ring-destructive/30 ring-4",
   warn: "bg-chart-4",
@@ -31,24 +26,9 @@ export const ReportTimeline = ({
   durationMs: number;
   startedAt: Date;
 }) => {
-  const start = startedAt.getTime();
-  const markers: Marker[] = [
-    ...devtools.console
-      .filter((entry) => entry.level === "error" || entry.level === "warn")
-      .map((entry) => ({
-        at: entry.timestamp - start,
-        kind: entry.level === "error" ? ("error" as const) : ("warn" as const),
-        label: entry.message,
-      })),
-    ...devtools.network.filter(isFailedRequest).map((request) => ({
-      at: request.timestamp - start,
-      kind: "failed" as const,
-      label: `${request.method} ${request.url}`,
-    })),
-  ];
-  const errors = markers.filter((marker) => marker.kind !== "warn").length;
+  const markers = timelineMarkers(devtools, startedAt);
+  const errors = markers.filter(isProblemMarker).length;
   const span = Math.max(durationMs, 1);
-
   return (
     <div className="flex items-center gap-3 font-mono text-xs tabular-nums">
       <span className="sr-only">
