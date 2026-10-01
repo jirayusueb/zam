@@ -15,6 +15,7 @@ export type ExtensionMessage =
   | { type: "recorder:ready" }
   | { type: "editor:load" }
   | { type: "editor:publishing" }
+  | { type: "editor:publish-blocked" }
   | { type: "report:published"; reportId: string }
   | { type: "report:failed"; message: string; reportId: string | null };
 
@@ -44,6 +45,7 @@ const MESSAGE_TYPE_SET: Record<ExtensionMessage["type"], true> = {
   "capture:start": true,
   "capture:stop": true,
   "editor:load": true,
+  "editor:publish-blocked": true,
   "editor:publishing": true,
   "recorder:cancelled": true,
   "recorder:ready": true,

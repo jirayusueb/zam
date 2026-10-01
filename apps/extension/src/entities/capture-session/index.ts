@@ -12,6 +12,7 @@ export {
   captureSessionItem,
   editorTabOf,
   finishCapture,
+  resumeEditing,
 } from "./model/capture-session";
 export { useCaptureSession } from "./model/use-capture-session";
 export { CaptureStatus } from "./ui/capture-status";

@@ -1,3 +1,4 @@
+import { ORPCError } from "@orpc/client";
 import { VIDEO_MIME_TYPE } from "@zam/capture/domain/value-objects/video-recording";
 import fixWebmDuration from "fix-webm-duration";
 
@@ -22,11 +23,22 @@ const published = (reportId: string): CaptureOutcome => ({
   reportId,
 });
 
+/**
+ * Drive access is missing or revoked (the API maps ACCESS_NOT_GRANTED to
+ * PRECONDITION_FAILED). Raised by `draft` before anything is saved, so the
+ * recording is intact: the editor offers re-granting access, then a retry.
+ */
+export type PublishOutcome =
+  | CaptureOutcome
+  | { kind: "needs_drive_access"; message: string };
+
+const DRIVE_ACCESS_ERROR_CODE = "PRECONDITION_FAILED";
+
 export const publishReport = async ({
   video,
   durationMs,
   context,
-}: PublishReportInput): Promise<CaptureOutcome> => {
+}: PublishReportInput): Promise<PublishOutcome> => {
   // MediaRecorder writes WebM without a Duration element: <video> reports Infinity and can't seek.
   const seekableVideo = await fixWebmDuration(video, durationMs, {
     logger: false,
@@ -56,6 +68,9 @@ export const publishReport = async ({
       title: context.title,
     });
   } catch (error) {
+    if (error instanceof ORPCError && error.code === DRIVE_ACCESS_ERROR_CODE) {
+      return { kind: "needs_drive_access", message: error.message };
+    }
     return failed(error instanceof Error ? error.message : String(error), null);
   }
 

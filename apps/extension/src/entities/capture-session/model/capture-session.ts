@@ -79,6 +79,14 @@ export const beginPublishing = (session: CaptureSession): CaptureSession => {
   return { ...session, status: "publishing" };
 };
 
+/** A publish stopped before anything was saved (e.g. Drive access missing): the recording stays editable. */
+export const resumeEditing = (session: CaptureSession): CaptureSession => {
+  if (session.status !== "publishing") {
+    return session;
+  }
+  return { ...session, status: "editing" };
+};
+
 /** The editor tab of an in-flight edit or upload, if any. */
 export const editorTabOf = (session: CaptureSession): number | null =>
   session.status === "editing" || session.status === "publishing"

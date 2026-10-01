@@ -21,6 +21,7 @@ import {
   sendExtensionMessage,
 } from "@/shared/api/messages";
 import type { PendingRecording } from "@/shared/api/messages";
+import { openWebPage } from "@/shared/lib/open-web-page";
 
 const MS_PER_SECOND = 1000;
 const SECONDS_PER_MINUTE = 60;
@@ -39,7 +40,9 @@ type PublishState =
   | { kind: "idle" }
   | { kind: "cutting"; progress: number }
   | { kind: "uploading" }
-  | { kind: "failed"; message: string; canRetry: boolean };
+  | { kind: "failed"; message: string; canRetry: boolean }
+  /** Nothing was saved; the reporter re-grants Drive access on the web app, then publishes again. */
+  | { kind: "needs-drive-access" };
 
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -119,6 +122,11 @@ const RecordingEditor = ({ recording }: { recording: PendingRecording }) => {
         reportId: outcome.reportId,
         type: "report:published",
       });
+      return;
+    }
+    if (outcome.kind === "needs_drive_access") {
+      setPublishState({ kind: "needs-drive-access" });
+      await sendExtensionMessage({ type: "editor:publish-blocked" });
       return;
     }
     setPublishState({
@@ -217,6 +225,27 @@ const RecordingEditor = ({ recording }: { recording: PendingRecording }) => {
           <Spinner />
           Uploading to Google Drive…
         </div>
+      ) : null}
+      {publishState.kind === "needs-drive-access" ? (
+        <Alert>
+          <AlertTitle>Zam needs access to your Google Drive</AlertTitle>
+          <AlertDescription className="flex flex-col items-start gap-3">
+            <p>
+              Zam uploads the video to your own Google Drive, but it doesn’t
+              have permission (it was never granted, or it was removed). Allow
+              access in the tab that opens and make sure the Google Drive box is
+              ticked, then come back and press Publish report again. Your
+              recording and cuts are kept.
+            </p>
+            <Button
+              onClick={() => openWebPage("/connect-drive")}
+              size="sm"
+              variant="outline"
+            >
+              Allow Google Drive access
+            </Button>
+          </AlertDescription>
+        </Alert>
       ) : null}
       {publishState.kind === "failed" ? (
         <Alert variant="destructive">

@@ -10,6 +10,7 @@ import {
   captureSessionItem,
   editorTabOf,
   finishCapture,
+  resumeEditing,
 } from "@/entities/capture-session";
 import type { CaptureOutcome, CaptureTarget } from "@/entities/capture-session";
 import { isExtensionMessage } from "@/shared/api/messages";
@@ -193,6 +194,12 @@ const handleEditorPublishing = async (): Promise<void> => {
   await setBadgePublishing();
 };
 
+const handleEditorPublishBlocked = async (): Promise<void> => {
+  const session = await captureSessionItem.getValue();
+  await captureSessionItem.setValue(resumeEditing(session));
+  await setBadgeEditing();
+};
+
 /** Ends the capture and releases the offscreen document, which holds the recording. */
 const endCapture = async (outcome: CaptureOutcome | null): Promise<void> => {
   const session = await captureSessionItem.getValue();
@@ -277,6 +284,10 @@ export const registerCaptureController = (): void => {
       }
       case "editor:publishing": {
         void handleEditorPublishing();
+        break;
+      }
+      case "editor:publish-blocked": {
+        void handleEditorPublishBlocked();
         break;
       }
       case "recorder:started": {
