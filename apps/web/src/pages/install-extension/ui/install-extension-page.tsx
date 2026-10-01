@@ -7,6 +7,16 @@ import {
   extensionDownloadPath,
 } from "@/shared/config/extension";
 
+import {
+  ChromeIcon,
+  ExtensionsPageIllustration,
+  FirefoxIcon,
+  InstallOverview,
+  PinIllustration,
+  PopupIllustration,
+  stepLabel,
+} from "./install-illustrations";
+
 /*
  * Every step mirrors the shipped extension: button labels come from
  * apps/extension (popup, editor), permissions from apps/extension/wxt.config.ts.
@@ -14,10 +24,10 @@ import {
  */
 const SECTIONS = [
   { id: "before", title: "Before you start" },
-  { id: "chrome", title: "Install in Chrome" },
+  { icon: ChromeIcon, id: "chrome", title: "Install in Chrome" },
   { id: "sign-in", title: "Pin and sign in" },
   { id: "first-report", title: "Record your first bug" },
-  { id: "firefox", title: "Firefox" },
+  { icon: FirefoxIcon, id: "firefox", title: "Firefox" },
   { id: "permissions", title: "Why it asks for these permissions" },
   { id: "update", title: "Updating and removing" },
   { id: "troubleshooting", title: "Troubleshooting" },
@@ -25,18 +35,26 @@ const SECTIONS = [
 
 type SectionId = (typeof SECTIONS)[number]["id"];
 
-const Section = ({ id, children }: { id: SectionId; children: ReactNode }) => (
-  <section
-    aria-labelledby={`${id}-title`}
-    className="flex scroll-mt-24 flex-col gap-4"
-    id={id}
-  >
-    <h2 className="font-display text-headline" id={`${id}-title`}>
-      {SECTIONS.find((section) => section.id === id)?.title}
-    </h2>
-    {children}
-  </section>
-);
+const Section = ({ id, children }: { id: SectionId; children: ReactNode }) => {
+  const section = SECTIONS.find((item) => item.id === id);
+  const Icon = section && "icon" in section ? section.icon : null;
+  return (
+    <section
+      aria-labelledby={`${id}-title`}
+      className="flex scroll-mt-24 flex-col gap-4"
+      id={id}
+    >
+      <h2
+        className="font-display text-headline flex items-center gap-3"
+        id={`${id}-title`}
+      >
+        {Icon ? <Icon className="size-[0.8em] shrink-0" /> : null}
+        {section?.title}
+      </h2>
+      {children}
+    </section>
+  );
+};
 
 const Code = ({ children }: { children: ReactNode }) => (
   <code className="bg-muted rounded px-1 py-0.5 font-mono text-[0.85em]">
@@ -59,7 +77,7 @@ const Steps = ({ steps }: { steps: ReactNode[] }) => (
         key={index}
       >
         <span className="text-muted-foreground font-mono text-sm tabular-nums">
-          {String(index + 1).padStart(2, "0")}
+          {stepLabel(index + 1)}
         </span>
         <div className="text-sm leading-relaxed">{step}</div>
       </li>
@@ -126,15 +144,18 @@ export const InstallExtensionPage = () => (
             className={buttonVariants({ size: "lg" })}
             href={extensionDownloadPath("chrome")}
           >
+            <ChromeIcon />
             Download for Chrome
           </a>
           <a
             className={buttonVariants({ size: "lg", variant: "outline" })}
             href={extensionDownloadPath("firefox")}
           >
+            <FirefoxIcon />
             Download for Firefox
           </a>
         </div>
+        <InstallOverview />
       </header>
 
       <Section id="before">
@@ -191,6 +212,7 @@ export const InstallExtensionPage = () => (
             </>,
           ]}
         />
+        <ExtensionsPageIllustration />
       </Section>
 
       <Section id="sign-in">
@@ -211,6 +233,7 @@ export const InstallExtensionPage = () => (
             </>,
           ]}
         />
+        <PinIllustration />
       </Section>
 
       <Section id="first-report">
@@ -235,6 +258,7 @@ export const InstallExtensionPage = () => (
             </>,
           ]}
         />
+        <PopupIllustration />
         <p className="text-muted-foreground text-sm">
           Console and network logs come from pages that were open after the
           extension was installed. Reload a tab that was already open before you
