@@ -2,7 +2,11 @@
 version: 1
 slug: "src-pages-editor-ui-editor-page-tsx"
 primary_target: "src/pages/editor/ui/editor-page.tsx"
-related_targets: ["src/features/edit-recording/ui/cut-timeline.tsx", "src/features/edit-recording/model/cut-ranges.ts"]
+related_targets:
+  [
+    "src/features/edit-recording/ui/cut-timeline.tsx",
+    "src/features/edit-recording/model/cut-ranges.ts",
+  ]
 ---
 
 ## Scope
