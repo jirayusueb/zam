@@ -4,16 +4,14 @@ import * as schema from "@zam/db/schema/auth";
 import { betterAuth } from "better-auth";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 
+import { GOOGLE_DRIVE_FILE_SCOPE } from "./scopes";
+
 export interface AuthConfig {
   BETTER_AUTH_URL: string;
   BETTER_AUTH_SECRET: string;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
 }
-
-/** Non-sensitive scope: per-file access to files this app creates. */
-export const GOOGLE_DRIVE_FILE_SCOPE =
-  "https://www.googleapis.com/auth/drive.file";
 
 export const createAuth = (env: AuthConfig, database: Database) =>
   betterAuth({

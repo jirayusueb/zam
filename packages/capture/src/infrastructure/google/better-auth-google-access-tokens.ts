@@ -1,5 +1,5 @@
 import type { Auth } from "@zam/auth";
-import { GOOGLE_DRIVE_FILE_SCOPE } from "@zam/auth";
+import { GOOGLE_DRIVE_FILE_SCOPE } from "@zam/auth/scopes";
 import type { Database } from "@zam/db";
 import { account } from "@zam/db/schema/auth";
 import { eq, and } from "drizzle-orm";
@@ -10,8 +10,12 @@ export interface GoogleAccessTokens {
   forUser: (reporterId: string) => Promise<string>;
 }
 
-const NOT_GRANTED_MESSAGE =
-  "Google Drive access not granted. Sign in again with Google and allow Drive access.";
+/**
+ * Signing in again does not fix this: Better Auth updates stored scopes only
+ * when the account is (re)linked, which the web app's /connect-drive page does.
+ */
+export const DRIVE_ACCESS_NOT_GRANTED_MESSAGE =
+  "Zam doesn't have access to your Google Drive. Allow Google Drive access, then try again.";
 
 export const createBetterAuthGoogleAccessTokens = (
   db: Database,
@@ -26,7 +30,10 @@ export const createBetterAuthGoogleAccessTokens = (
       )
       .limit(1);
     if (!row) {
-      throw new VideoStorageError("ACCESS_NOT_GRANTED", NOT_GRANTED_MESSAGE);
+      throw new VideoStorageError(
+        "ACCESS_NOT_GRANTED",
+        DRIVE_ACCESS_NOT_GRANTED_MESSAGE
+      );
     }
     let result: { accessToken: string; scopes: string[] };
     try {
@@ -34,10 +41,16 @@ export const createBetterAuthGoogleAccessTokens = (
         body: { accountId: row.id, userId: reporterId },
       });
     } catch {
-      throw new VideoStorageError("ACCESS_NOT_GRANTED", NOT_GRANTED_MESSAGE);
+      throw new VideoStorageError(
+        "ACCESS_NOT_GRANTED",
+        DRIVE_ACCESS_NOT_GRANTED_MESSAGE
+      );
     }
     if (!result.scopes.includes(GOOGLE_DRIVE_FILE_SCOPE)) {
-      throw new VideoStorageError("ACCESS_NOT_GRANTED", NOT_GRANTED_MESSAGE);
+      throw new VideoStorageError(
+        "ACCESS_NOT_GRANTED",
+        DRIVE_ACCESS_NOT_GRANTED_MESSAGE
+      );
     }
     return result.accessToken;
   },

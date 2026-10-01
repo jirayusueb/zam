@@ -7,6 +7,7 @@ import type {
 } from "../../application/ports/video-storage";
 import { VideoStorageError } from "../../application/ports/video-storage-error";
 import { VIDEO_MIME_TYPE } from "../../domain/value-objects/video-recording";
+import { DRIVE_ACCESS_NOT_GRANTED_MESSAGE } from "./better-auth-google-access-tokens";
 import type { GoogleAccessTokens } from "./better-auth-google-access-tokens";
 
 const UPLOAD_URL =
@@ -37,7 +38,7 @@ export const createGoogleDriveVideoStorage = (
     if (response.status === 401 || response.status === 403) {
       throw new VideoStorageError(
         "ACCESS_NOT_GRANTED",
-        "Google Drive access not granted. Sign in again with Google and allow Drive access."
+        DRIVE_ACCESS_NOT_GRANTED_MESSAGE
       );
     }
     const uploadUrl = response.headers.get("Location");
@@ -62,7 +63,7 @@ export const createGoogleDriveVideoStorage = (
     if (response.status === 401 || response.status === 403) {
       throw new VideoStorageError(
         "ACCESS_NOT_GRANTED",
-        "Google Drive access not granted. Sign in again with Google and allow Drive access."
+        DRIVE_ACCESS_NOT_GRANTED_MESSAGE
       );
     }
     if (response.status === 404) {
@@ -103,7 +104,7 @@ export const createGoogleDriveVideoStorage = (
     if (response.status === 401) {
       throw new VideoStorageError(
         "ACCESS_NOT_GRANTED",
-        "Google Drive access not granted. Sign in again with Google and allow Drive access."
+        DRIVE_ACCESS_NOT_GRANTED_MESSAGE
       );
     }
     if (response.status === 403) {
