@@ -79,13 +79,21 @@ export const BUG_REPORT_SEARCH_INDEX = "bug_report_search_bm25";
 export const bugReport = pgTable(
   "bug_report",
   {
+    assigneeId: text("assignee_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
     consoleEntries: jsonb("console_entries")
       .$type<ConsoleEntryRow[]>()
       .notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    description: text("description").notNull().default(""),
     // Null for reports captured before environment capture existed.
     environment: jsonb("environment").$type<ClientEnvironmentRow>(),
     id: text("id").primaryKey(),
+    metadata: jsonb("metadata")
+      .$type<Record<string, string>>()
+      .notNull()
+      .default({}),
     networkRequests: jsonb("network_requests")
       .$type<NetworkRequestRow[]>()
       .notNull(),
@@ -103,7 +111,10 @@ export const bugReport = pgTable(
       .$type<StorageSnapshotRow>()
       .notNull()
       .default({ cookies: [], localStorage: [], sessionStorage: [] }),
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
     title: text("title").notNull(),
+    triagePriority: text("triage_priority").notNull().default("none"),
+    triageStatus: text("triage_status").notNull().default("open"),
     userSteps: jsonb("user_steps").$type<UserStepRow[]>().notNull().default([]),
     videoDurationMs: integer("video_duration_ms").notNull(),
     videoFileId: text("video_file_id"),

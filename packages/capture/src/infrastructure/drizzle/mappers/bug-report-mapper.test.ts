@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import {
   draftBugReport,
+  editBugReport,
   publishBugReport,
 } from "../../../domain/entities/bug-report";
 import type { BugReport } from "../../../domain/entities/bug-report";
@@ -33,6 +34,7 @@ const draft = unwrap(
         userAgent: "Mozilla/5.0",
         viewport: { height: 900, width: 1440 },
       },
+      metadata: { env: "staging" },
       pageUrl: "https://example.com/page",
       recording: {
         durationMs: 5000,
@@ -83,5 +85,24 @@ describe("bugReportMapper", () => {
       publishBugReport(draft, reporterId, { fileId: "drive-file" })
     );
     expect(roundTrip(published)).toEqual(published);
+  });
+
+  it("round-trips an edited report's description, triage, and metadata", () => {
+    const edited = unwrap(
+      editBugReport(
+        draft,
+        reporterId,
+        {
+          assigneeId: "55555555-5555-5555-5555-555555555555",
+          description: "steps to repro",
+          metadata: { build: "123" },
+          priority: "high",
+          status: "in_progress",
+          tags: ["regression"],
+        },
+        { generateActivityId: () => "activity-1", now: () => new Date(2) }
+      )
+    ).report;
+    expect(roundTrip(edited)).toEqual(edited);
   });
 });

@@ -31,6 +31,7 @@ The video lives in the reporter's own Google Drive; Zam stores only report metad
 - Devtools snapshot: console entries (calls, uncaught errors/rejections) and fetch/XHR requests (method, redacted URL, status, duration, request/response headers and bodies). URLs are redacted before storage; sensitive header values are redacted, and bodies are text-only, truncated, and capped.
 - Storage snapshot: the tab's cookies (via `browser.cookies`), localStorage and sessionStorage when the recording stops, shown in the report's Application tab. HttpOnly cookie values and secret-named keys are redacted before storage.
 - Steps and environment: reporter clicks, navigations and tab visibility during the recording (typed text never captured), plus browser, OS, viewport, language, time zone and connection at stop, shown in the report's Steps and Info tabs.
+- Report workflow: the reporter edits a markdown description and triage fields (status, priority, assignee, tags) and custom metadata on their own reports; every edit is recorded as a timestamped activity entry. The reporter can delete their own report (the Drive video is untouched).
 - Title length is capped (`MAX_TITLE_LENGTH`, shared kernel `@zam/capture/domain`).
 - Binding domain vocabulary lives in `docs/architecture.md`; UI copy uses the same terms (bug report, capture, reporter, share link).
 - Shared UI primitives are shadcn/ui in `packages/ui`; both apps consume one token file (`packages/ui/src/styles/globals.css`).

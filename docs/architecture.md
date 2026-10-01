@@ -34,6 +34,10 @@ Ubiquitous language (code names are binding):
 | Upload ticket | One-time Drive resumable-upload URL handed to the extension | `UploadTicket { uploadUrl }` |
 | Comment | Markdown note on a bug report by a signed-in user; threads are one level deep (a reply to a reply joins the root's thread) | `Comment` |
 | Author | Signed-in user who wrote a comment (any user, not only the reporter) | `AuthorId` |
+| Triage | Reporter-managed workflow fields: status, priority, assignee, tags; distinct from the draft/published lifecycle | `Triage` |
+| Metadata | Reporter- or page-set key/value context (`window.zam.setMetadata`, or edited on the report page) | `ReportMetadata` |
+| Report activity | One append-only history entry for a report field change | `ReportActivity` |
+| Participant | The reporter or anyone who has commented on a report; the only valid assignees | `ReportParticipantView` |
 
 Context map:
 
@@ -59,15 +63,15 @@ flowchart LR
 | Building block | Element | Notes |
 | --- | --- | --- |
 | Aggregate root | `BugReport`, `Comment` | Identities `ReportId`, `CommentId`; consistency boundary; one aggregate per transaction. `Comment` references its report and thread root by id |
-| Value objects | `ReportId`, `ReporterId`, `VideoRecording`, `StoredVideo`, `DevtoolsSnapshot`, `ConsoleEntry`, `NetworkRequest`, `StorageSnapshot`, `CommentId`, `AuthorId`, `CommentBody` | Immutable, compared by value, validated on creation |
-| Factory | `draftBugReport` | The only way to create a report; enforces all invariants |
+| Value objects | `ReportId`, `ReporterId`, `VideoRecording`, `StoredVideo`, `DevtoolsSnapshot`, `ConsoleEntry`, `NetworkRequest`, `StorageSnapshot`, `CommentId`, `AuthorId`, `CommentBody`, `Triage`, `ReportMetadata` | Immutable, compared by value, validated on creation |
+| Factory | `draftBugReport` | The only way to create a report; enforces all invariants; `description` starts `""` and `triage` starts `DEFAULT_TRIAGE` |
 | Domain policies | `redactUrl`, `redactStorageSnapshot`, `assertValidDevtools`, `parseStorageSnapshot` | Pure functions; no domain service needed (no rule spans aggregates) |
-| Repository (write side) | `BugReportRepository { save, findById }`, `CommentRepository { save, findById }` | Domain port; loads/saves the whole aggregate |
-| Read model (query side) | `BugReportReadModel { searchSummariesByReporter, findSharedById, findVideoLocation }`, `CommentReadModel { listByReport }` | Application port returning DTOs straight from storage (§5) |
-| Data mapper | `bugReportMapper`, `commentMapper` (`infrastructure/drizzle/mappers/`) | `toDomain` / `toPersistence` for repositories, `toSharedRecord` / `toSummary` / `toView` for read models; the only code that knows both a table row and a domain/DTO shape |
-| Application services | Commands `draftBugReport`, `publishBugReport`, `postComment`; queries `listMyBugReports`, `viewSharedBugReport`, `listReportComments` | Orchestrate ports; hold no business rules |
+| Repository (write side) | `BugReportRepository { save, findById, deleteById }`, `CommentRepository { save, findById }`, `ReportActivityRepository { save }` | Domain port; loads/saves the whole aggregate |
+| Read model (query side) | `BugReportReadModel { searchSummariesByReporter, findSharedById, findVideoLocation }`, `CommentReadModel { listByReport }`, `ReportActivityReadModel { listByReport }`, `ReportParticipantReadModel { listByReport }` | Application port returning DTOs straight from storage (§5) |
+| Data mapper | `bugReportMapper`, `commentMapper`, `reportActivityMapper` (`infrastructure/drizzle/mappers/`) | `toDomain` / `toPersistence` for repositories, `toSharedRecord` / `toSummary` / `toView` for read models; the only code that knows both a table row and a domain/DTO shape |
+| Application services | Commands `draftBugReport`, `publishBugReport`, `editBugReport`, `deleteBugReport`, `postComment`; queries `listMyBugReports`, `viewSharedBugReport`, `listReportComments`, `listReportActivities`, `listReportParticipants` | Orchestrate ports; hold no business rules |
 | Domain errors | `CaptureDomainError` codes | Translated to transport errors only in the oRPC adapter |
-| Domain events | None | §5 |
+| Domain events | `ReportActivity` (append-only history, not sourced — see §5) | `created` written by `draftBugReport`'s caller, `published` by `publishBugReport`'s caller, the rest by `editBugReport` |
 | Process manager (Capture Agent) | `CaptureSession` state machine in the service worker | Coordinates popup, offscreen recorder, tab, API, Drive |
 
 Style: immutable records + pure functions, not classes (repo lint forbids parameter properties and >1 class per file; records cross extension messaging and oRPC unchanged).
@@ -81,13 +85,15 @@ stateDiagram-v2
 ```
 
 - `BugReport = DraftBugReport | PublishedBugReport` (discriminated on `status`); `DraftBugReport.video: null`, `PublishedBugReport.video: StoredVideo`. The type system enforces "published ⇔ video present".
-- Fields: `id: ReportId`, `reporterId: ReporterId`, `title: string`, `pageUrl: string | null`, `recording: VideoRecording`, `devtools: DevtoolsSnapshot`, `createdAt: Date`, `status`, `video`.
+- Fields: `id: ReportId`, `reporterId: ReporterId`, `title: string`, `description: string`, `pageUrl: string | null`, `recording: VideoRecording`, `devtools: DevtoolsSnapshot`, `createdAt: Date`, `triage: Triage`, `metadata: ReportMetadata`, `status`, `video`.
 - Invariants enforced in `draftBugReport` (throw `CaptureDomainError("INVALID_BUG_REPORT", <reason>)`):
   1. `title.trim()` length 1..`MAX_TITLE_LENGTH` (200); stored trimmed.
   2. `pageUrl` is `null` or an `http:`/`https:` URL (`URL.canParse`) of length ≤ `MAX_URL_LENGTH` (2048).
   3. `recording.mimeType === VIDEO_MIME_TYPE` (`"video/webm"`); `sizeBytes` integer 1..`MAX_VIDEO_BYTES` (500 MiB = 524_288_000); `durationMs` integer 1..`MAX_RECORDING_DURATION_MS` (300_000); `startedAt` a valid Date.
   4. Devtools (`assertValidDevtools`): ≤ `MAX_LOG_ENTRIES` (1000) console entries and ≤ 1000 network requests; console `level ∈ CONSOLE_LEVELS`, `message.length ≤ MAX_CONSOLE_MESSAGE_LENGTH` (2000); network `method` 1..16 chars, `url.length ≤ 2048`, `status` integer 0..599, `durationMs ≥ 0`; every `timestamp` finite; network headers (if present) ≤ `MAX_NETWORK_HEADER_COUNT` (30) entries with names ≤ `MAX_NETWORK_HEADER_NAME_LENGTH` (100) and values ≤ `MAX_NETWORK_HEADER_VALUE_LENGTH` (500) chars; network bodies (if present) ≤ `MAX_NETWORK_BODY_LENGTH` (2000) chars plus the truncation marker.
 - `publishBugReport(report, actorId, video)` rules: `actorId !== report.reporterId` → `BUG_REPORT_ACCESS_DENIED`; `report.status === "published"` → `BUG_REPORT_ALREADY_PUBLISHED`; `video.fileId` empty → `INVALID_BUG_REPORT`. Returns a new `PublishedBugReport`.
+- `editBugReport(report, actorId, changes, deps)` (reporter only, `BUG_REPORT_ACCESS_DENIED` otherwise): applies only the provided fields of `changes` (`title`, `description`, `status`, `priority`, `assigneeId`, `tags`, `metadata`); a field that resolves to its current value produces no `ReportActivity`. `title`/`description` reuse `parseTitle`/the `MAX_DESCRIPTION_LENGTH` (10 000) check; `tags` are trimmed, deduped case-insensitively, then capped at `MAX_TAGS` (20) entries of ≤ `MAX_TAG_LENGTH` (40) chars; `metadata` reuses `parseReportMetadata`. Returns `{ report, activities }`. The assignee must be a participant (the reporter or someone who commented) — checked by the application command via `ReportParticipantReadModel`, since that needs a port the domain function doesn't have.
+- `deleteBugReport({ reportId, actorId })` (application command, reporter only via the same rule): deletes the row; comments and `report_activity` rows cascade. Never touches the Drive video — the reporter keeps the file, only the share link stops resolving.
 - Identity: `toReportId(value)` accepts only UUID strings (top-level regex `/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu`), otherwise throws `BUG_REPORT_NOT_FOUND` (malformed links behave like missing reports). `toReporterId(value)` rejects empty strings with `BUG_REPORT_ACCESS_DENIED`. Both brand via one `as` inside the factory.
 - Redaction policy (shared kernel, applied client-side before data leaves the browser, as Jam does): `redactUrl(url)` replaces values of query params whose name matches `/token|key|secret|password|passwd|auth|session|code|signature|sig/iu` with `[REDACTED]` via `URL`/`searchParams.set`; unparsable input returned unchanged. Example: `https://x.test/a?token=abc&q=1` → `https://x.test/a?token=%5BREDACTED%5D&q=1`.
 - Network redaction (same client-side policy, `redactNetworkRequestDetails`): header values matching `isSecretHeaderName` (`authorization`, `cookie`, `set-cookie`, `proxy-authorization`, `x-api-key`, or the same `isSecretName` regex) become `[REDACTED]`; headers are capped at `MAX_NETWORK_HEADER_COUNT` (30) entries. Bodies are text-only: fetch/XHR reads a body only for text-like content types, else `"[binary]"`; each body is truncated to `MAX_NETWORK_BODY_LENGTH` (2000) chars with a trailing marker. `parseDevtoolsSnapshot` re-checks all of this server-side.
@@ -114,12 +120,16 @@ Commands and queries:
 
 | Kind | Use case | Actor | Flow |
 | --- | --- | --- | --- |
-| Command | `draftBugReport` | reporter | validate via domain → `storage.createUploadTicket` (before save, so Drive-access failures leave no orphan draft) → `reports.save` → `{ reportId, uploadUrl }` |
-| Command | `publishBugReport` | reporter | `reports.findById` (null → `BUG_REPORT_NOT_FOUND`) → domain `publishBugReport` → `reports.save` → `storage.shareWithAnyone` (after save: a Workspace sharing refusal still leaves the owner a published report) |
+| Command | `draftBugReport` | reporter | validate via domain → `storage.createUploadTicket` (before save, so Drive-access failures leave no orphan draft) → `reports.save` → `activities.save` (`created`) → `{ reportId, uploadUrl }` |
+| Command | `publishBugReport` | reporter | `reports.findById` (null → `BUG_REPORT_NOT_FOUND`) → domain `publishBugReport` → `reports.save` → `activities.save` (`published`) → `storage.shareWithAnyone` (after save: a Workspace sharing refusal still leaves the owner a published report) |
+| Command | `editBugReport` | reporter | `reports.findById` (null → `BUG_REPORT_NOT_FOUND`) → if `assigneeId` set and non-null, `participants.listByReport` must contain it (else `INVALID_BUG_REPORT`) → domain `editBugReport` → `reports.save` → `activities.save` each changed field |
+| Command | `deleteBugReport` | reporter | `reports.findById` (null → `BUG_REPORT_NOT_FOUND`) → `onlyReporterMayEdit` → `reports.deleteById` (comments, activities cascade; the Drive video is left alone) |
 | Query | `listMyBugReports` | reporter | normalize (trim query; sort defaults to `relevance` with a query else `newest`; `relevance` without a query → `newest`; 1-based `page` → offset, `pageSize` ≤ `MAX_PAGE_SIZE` 50) → `readModel.searchSummariesByReporter` → `{ items, total, page, pageSize }` |
-| Query | `viewSharedBugReport` | anyone with link | `toReportId` → `readModel.findSharedById` (null → `BUG_REPORT_NOT_FOUND`) → view with `videoEmbedUrl = storage.embedUrl(videoFileId)`, or `null` for drafts |
+| Query | `viewSharedBugReport` | anyone with link | `toReportId` → `readModel.findSharedById` (null → `BUG_REPORT_NOT_FOUND`) → view with `videoEmbedUrl = storage.embedUrl(videoFileId)` (or `null` for drafts) and `canEdit = viewerId === record.reporterId`; `reporterId` itself never leaves this query |
 | Command | `postComment` | signed-in user | `reports.findById` (null → `BUG_REPORT_NOT_FOUND`) → optional `comments.findById(replyToId)` (null → `COMMENT_NOT_FOUND`) → domain `postComment` (body trimmed 1..`MAX_COMMENT_LENGTH` 10_000; reply target on the same report; `parentId = target.parentId ?? target.id`) → `comments.save` |
 | Query | `listReportComments` | signed-in user | `parseReportId` → `commentReadModel.listByReport` (oldest first, joined with author name/image) → client groups threads |
+| Query | `listReportActivities` | signed-in user | `parseReportId` → `activityReadModel.listByReport` (oldest first, joined with actor name/image) |
+| Query | `listReportParticipants` | signed-in user | `parseReportId` → `participants.listByReport` (reporter + distinct comment authors, `isReporter` flag) |
 
 Comments are auth-only for reading and writing (`protectedProcedure`); anonymous share-link viewers see a sign-in prompt, so author names never reach the public page. Bodies are Markdown, authored and rendered with Tiptap (`@tiptap/markdown`) through one schema (`MARKDOWN_EXTENSIONS`), so raw HTML in a body is dropped rather than injected.
 
@@ -250,17 +260,16 @@ Event Sourcing:
 
 | Factor | Event Sourcing | State-based persistence |
 | --- | --- | --- |
-| Business value of history | Aggregate has one transition (draft → published); its history is `createdAt` + `videoFileId` | Current state carries all of it |
-| Audit / temporal queries | Built in | Not required |
-| Complexity | Event store, versioning/upcasting, projections, snapshots, replay tooling | One table, one upsert |
-| Right to erasure | Immutable events conflict with account deletion (needs crypto-shredding) | `on delete cascade` from `user` |
+| Business value of history | `BugReport` has `draft → published` plus reporter-managed triage edits; its history is `createdAt`/`videoFileId` plus `report_activity` | Current state carries all of it |
+| Audit / temporal queries | Built in | `report_activity` gives the audit trail without replay |
+| Complexity | Event store, versioning/upcasting, projections, snapshots, replay tooling | One extra append-only table, one upsert for the aggregate |
+| Right to erasure | Immutable events conflict with account deletion (needs crypto-shredding) | `on delete cascade` from `user`, including `report_activity` |
 | Platform fit | Append with optimistic concurrency needs atomic multi-statement writes; this repo's drizzle `neon-http` driver throws "No transactions support in neon-http driver" (only atomic `db.batch`) | Single-row writes, no transaction needed |
 
-Decision: no Event Sourcing and no domain events; `BugReport` is stored as state.
+Decision: still no Event Sourcing — `BugReport` is stored as state. The first revisit trigger below fired (reports gained a triage workflow): `editBugReport` returns `{ report, activities }`, and `ReportActivity` is an append-only history record of the realized change, not a source of truth the aggregate is replayed from. `draftBugReport`'s and `publishBugReport`'s callers write the matching `created`/`published` activity the same way, so the full lifecycle has one record each.
 
 Revisit triggers:
 
-- Reports gain a workflow (triage/assign/resolve, comments, annotations) or audit becomes a feature → aggregate functions return `{ report, events }`; persistence stays state-based.
 - An asynchronous consumer appears (Slack/Jira/webhook integrations) → transactional outbox table written in the same `db.batch` as the aggregate, relayed via a Cloudflare Queue.
 - Read shapes diverge (search, analytics across reports) → full CQRS projection.
 - Event Sourcing only if the history itself becomes the product.

@@ -15,6 +15,13 @@ import {
   MAX_STORAGE_ENTRIES,
 } from "@zam/capture/domain/value-objects/storage-snapshot";
 import {
+  MAX_DESCRIPTION_LENGTH,
+  MAX_TAGS,
+  MAX_TAG_LENGTH,
+  REPORT_PRIORITIES,
+  REPORT_STATUSES,
+} from "@zam/capture/domain/value-objects/triage";
+import {
   MAX_USER_STEPS,
   USER_STEP_KINDS,
 } from "@zam/capture/domain/value-objects/user-step";
@@ -147,12 +154,25 @@ const environmentInput = z
   .default(null);
 
 export const bugReportRouter = {
+  delete: protectedProcedure
+    .input(z.object({ reportId: z.string() }))
+    .handler(async ({ context, input }) => {
+      unwrapOrThrow(
+        await context.capture.deleteBugReport({
+          actorId: context.session.user.id,
+          reportId: input.reportId,
+        })
+      );
+      return { ok: true as const };
+    }),
+
   draft: protectedProcedure
     .use(storageErrors)
     .input(
       z.object({
         devtools: z.object(devtoolsInputShape),
         environment: environmentInput,
+        metadata: z.record(z.string(), z.string()).default({}),
         pageUrl: z.string().nullable(),
         recording: z.object({
           durationMs: z.int(),
@@ -170,6 +190,7 @@ export const bugReportRouter = {
         await context.capture.draftBugReport({
           devtools: input.devtools,
           environment: input.environment,
+          metadata: input.metadata,
           pageUrl: input.pageUrl,
           recording: input.recording,
           reporterId: context.session.user.id,
@@ -185,7 +206,20 @@ export const bugReportRouter = {
     .input(z.object({ reportId: z.string() }))
     .handler(async ({ context, input }) =>
       unwrapOrThrow(
-        await context.capture.viewSharedBugReport({ reportId: input.reportId })
+        await context.capture.viewSharedBugReport({
+          reportId: input.reportId,
+          viewerId: context.session?.user.id ?? null,
+        })
+      )
+    ),
+
+  listActivities: protectedProcedure
+    .input(z.object({ reportId: z.string() }))
+    .handler(async ({ context, input }) =>
+      unwrapOrThrow(
+        await context.capture.listReportActivities({
+          reportId: input.reportId,
+        })
       )
     ),
 
@@ -214,6 +248,16 @@ export const bugReportRouter = {
         await context.capture.listMyBugReports({
           ...input,
           reporterId: context.session.user.id,
+        })
+      )
+    ),
+
+  listParticipants: protectedProcedure
+    .input(z.object({ reportId: z.string() }))
+    .handler(async ({ context, input }) =>
+      unwrapOrThrow(
+        await context.capture.listReportParticipants({
+          reportId: input.reportId,
         })
       )
     ),
@@ -247,4 +291,34 @@ export const bugReportRouter = {
         })
       )
     ),
+
+  update: protectedProcedure
+    .input(
+      z.object({
+        assigneeId: z.string().nullable().optional(),
+        description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+        metadata: z.record(z.string(), z.string()).optional(),
+        priority: z.enum(REPORT_PRIORITIES).optional(),
+        reportId: z.string(),
+        status: z.enum(REPORT_STATUSES).optional(),
+        tags: z.array(z.string().max(MAX_TAG_LENGTH)).max(MAX_TAGS).optional(),
+        title: z.string().optional(),
+      })
+    )
+    .handler(async ({ context, input }) => {
+      const { reportId, ...changes } = input;
+      unwrapOrThrow(
+        await context.capture.editBugReport({
+          ...changes,
+          actorId: context.session.user.id,
+          reportId,
+        })
+      );
+      return unwrapOrThrow(
+        await context.capture.viewSharedBugReport({
+          reportId,
+          viewerId: context.session.user.id,
+        })
+      );
+    }),
 };

@@ -5,4 +5,5 @@ import type { ReportId } from "../value-objects/report-id";
 export interface BugReportRepository {
   save: (report: BugReport) => Promise<void>;
   findById: (id: ReportId) => Promise<Option<BugReport>>;
+  deleteById: (id: ReportId) => Promise<void>;
 }

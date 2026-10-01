@@ -87,8 +87,14 @@ const createFakeCommentRepository = (): CommentRepository & {
 const commentDeps = () => {
   let next = 0;
   return {
+    activities: { save: () => Promise.resolve() },
+    activityReadModel: { listByReport: () => Promise.resolve([]) },
     commentReadModel: { listByReport: () => Promise.resolve([]) },
     comments: createFakeCommentRepository(),
+    generateActivityId: () => {
+      next += 1;
+      return `activity-${next}`;
+    },
     generateCommentId: () => {
       next += 1;
       return unwrap(
@@ -97,6 +103,7 @@ const commentDeps = () => {
         )
       );
     },
+    participants: { listByReport: () => Promise.resolve([]) },
   };
 };
 
@@ -168,7 +175,10 @@ describe("viewSharedBugReport use case", () => {
       storage: noopStorage(),
     });
 
-    const result = await useCases.viewSharedBugReport({ reportId: "abc" });
+    const result = await useCases.viewSharedBugReport({
+      reportId: "abc",
+      viewerId: null,
+    });
 
     expect(result).toMatchObject({
       error: { code: "BUG_REPORT_NOT_FOUND" },

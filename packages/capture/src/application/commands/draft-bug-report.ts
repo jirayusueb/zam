@@ -1,6 +1,7 @@
 import type { CaptureDomainError } from "../../domain/capture-domain-error";
 import { draftBugReport } from "../../domain/entities/bug-report";
 import type { BugReportRepository } from "../../domain/repositories/bug-report-repository";
+import type { ReportActivityRepository } from "../../domain/repositories/report-activity-repository";
 import type { ClientEnvironment } from "../../domain/value-objects/client-environment";
 import type { DevtoolsSnapshot } from "../../domain/value-objects/devtools-snapshot";
 import type { ReportId } from "../../domain/value-objects/report-id";
@@ -14,8 +15,10 @@ import type { VideoStorage } from "../ports/video-storage";
 
 interface DraftBugReportDeps {
   reports: BugReportRepository;
+  activities: ReportActivityRepository;
   storage: VideoStorage;
   generateReportId: () => ReportId;
+  generateActivityId: () => string;
   now: () => Date;
 }
 
@@ -28,6 +31,7 @@ export interface DraftBugReportInput {
   storage: StorageSnapshot;
   steps: readonly UserStep[];
   environment: ClientEnvironment | null;
+  metadata?: Record<string, string>;
 }
 
 export interface DraftBugReportOutput {
@@ -51,6 +55,7 @@ export const createDraftBugReport =
       {
         devtools: input.devtools,
         environment: input.environment,
+        metadata: input.metadata,
         pageUrl: input.pageUrl,
         recording: input.recording,
         reporterId: reporterId.value,
@@ -72,5 +77,14 @@ export const createDraftBugReport =
       sizeBytes: report.recording.sizeBytes,
     });
     await deps.reports.save(report);
+    await deps.activities.save({
+      actorId: report.reporterId,
+      createdAt: deps.now(),
+      from: null,
+      id: deps.generateActivityId(),
+      kind: "created",
+      reportId: report.id,
+      to: null,
+    });
     return ok({ reportId: report.id, uploadUrl: ticket.uploadUrl });
   };

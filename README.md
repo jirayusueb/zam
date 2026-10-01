@@ -7,6 +7,7 @@ Videos are stored in the reporter's own Google Drive. Zam stores only report met
 - **Capture:** Chrome/Firefox extension records video and collects console entries (calls, uncaught errors, rejections), fetch/XHR requests (method, redacted URL, status, duration, request/response headers and bodies — secrets redacted, bodies capped and text-only), user steps (clicks, navigations, tab visibility; never typed text), the reporter's browser/OS/viewport/connection, and the tab's application storage at stop (cookies, localStorage, sessionStorage; secrets redacted).
 - **Edit:** after stopping, an editor tab lets the reporter cut ranges out of the recording. Cut parts are re-encoded away in the browser before upload, and devtools entries recorded during them are dropped.
 - **Share:** reports go `draft` → `published`; the unguessable report UUID in the link is the access capability.
+- **Edit & triage:** the reporter edits the title, a markdown description, and triage (status, priority, assignee, tags) plus custom metadata on their own reports; each change is recorded as an activity. The reporter can delete their own report (never the Drive video).
 - **Sign-in:** Google OAuth via Better Auth; Drive access is required to store the video.
 
 Product context lives in [`PRODUCT.md`](PRODUCT.md); domain model and vocabulary in [`docs/architecture.md`](docs/architecture.md).

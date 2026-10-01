@@ -1,6 +1,7 @@
 import { CaptureDomainError } from "../../domain/capture-domain-error";
 import { publishBugReport } from "../../domain/entities/bug-report";
 import type { BugReportRepository } from "../../domain/repositories/bug-report-repository";
+import type { ReportActivityRepository } from "../../domain/repositories/report-activity-repository";
 import { parseReportId } from "../../domain/value-objects/report-id";
 import type { ReportId } from "../../domain/value-objects/report-id";
 import { parseReporterId } from "../../domain/value-objects/reporter-id";
@@ -12,7 +13,10 @@ import type { VideoStorage } from "../ports/video-storage";
 
 interface PublishBugReportDeps {
   reports: BugReportRepository;
+  activities: ReportActivityRepository;
   storage: VideoStorage;
+  generateActivityId: () => string;
+  now: () => Date;
 }
 
 export interface PublishBugReportInput {
@@ -61,6 +65,15 @@ export const createPublishBugReport =
       return published;
     }
     await deps.reports.save(published.value);
+    await deps.activities.save({
+      actorId: actorId.value,
+      createdAt: deps.now(),
+      from: null,
+      id: deps.generateActivityId(),
+      kind: "published",
+      reportId: published.value.id,
+      to: null,
+    });
     await deps.storage.shareWithAnyone({
       fileId: published.value.video.fileId,
       reporterId: actorId.value,

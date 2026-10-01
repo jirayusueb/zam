@@ -22,6 +22,18 @@ export const onlyReporterMayPublish = (
     ),
 });
 
+export const onlyReporterMayEdit = (
+  report: BugReport,
+  actorId: ReporterId
+): BugReportRule => ({
+  holds: () => isReportedBy(actorId).isSatisfiedBy(report),
+  violation: () =>
+    new CaptureDomainError(
+      "BUG_REPORT_ACCESS_DENIED",
+      "Only the reporter may edit this report"
+    ),
+});
+
 export const publishOnlyOnce = (report: BugReport): BugReportRule => ({
   holds: () => not(isPublished).isSatisfiedBy(report),
   violation: () =>

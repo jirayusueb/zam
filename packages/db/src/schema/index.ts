@@ -2,3 +2,4 @@
 export * from "./auth";
 export * from "./bug-report";
 export * from "./comment";
+export * from "./report-activity";

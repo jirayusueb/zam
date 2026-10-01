@@ -11,6 +11,9 @@ import { bugReportMapper } from "./mappers/bug-report-mapper";
 export const createDrizzleBugReportRepository = (
   db: Database
 ): BugReportRepository => ({
+  deleteById: async (id: ReportId) => {
+    await db.delete(bugReport).where(eq(bugReport.id, id));
+  },
   findById: async (id: ReportId) => {
     const [row] = await db
       .select()
@@ -20,13 +23,10 @@ export const createDrizzleBugReportRepository = (
     return row ? some(bugReportMapper.toDomain(row)) : none;
   },
   save: async (report: BugReport) => {
-    const row = bugReportMapper.toPersistence(report);
+    const { id, ...rest } = bugReportMapper.toPersistence(report);
     await db
       .insert(bugReport)
-      .values(row)
-      .onConflictDoUpdate({
-        set: { videoFileId: row.videoFileId },
-        target: bugReport.id,
-      });
+      .values({ id, ...rest })
+      .onConflictDoUpdate({ set: rest, target: bugReport.id });
   },
 });
