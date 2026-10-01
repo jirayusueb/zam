@@ -27,6 +27,8 @@ export interface CaptureContext {
   storage: StorageSnapshot;
   steps: UserStep[];
   environment: ClientEnvironment | null;
+  // Set via `window.zam.setMetadata(...)` in the recorded page, or edited later on the report page.
+  metadata: Record<string, string>;
 }
 
 /** A finished capture, held by the offscreen document until the editor publishes or discards it. */

@@ -2,6 +2,7 @@ import type {
   ConsoleEntry,
   ConsoleLevel,
   NetworkRequest,
+  NetworkResourceType,
 } from "@zam/capture/domain/value-objects/devtools-snapshot";
 import {
   MAX_CONSOLE_MESSAGE_LENGTH,
@@ -11,6 +12,11 @@ import {
   truncateNetworkBody,
 } from "@zam/capture/domain/value-objects/devtools-snapshot";
 import { MAX_URL_LENGTH } from "@zam/capture/domain/value-objects/page-url";
+import {
+  MAX_METADATA_ENTRIES,
+  MAX_METADATA_KEY_LENGTH,
+  MAX_METADATA_VALUE_LENGTH,
+} from "@zam/capture/domain/value-objects/report-metadata";
 import type { UserStep } from "@zam/capture/domain/value-objects/user-step";
 
 import { installStepHooks } from "./install-step-hooks";
@@ -20,7 +26,13 @@ export const DEVTOOLS_BUFFER_KEY = "zam.devtools";
 interface DevtoolsBuffer {
   console: ConsoleEntry[];
   network: NetworkRequest[];
+  // ponytail: resource-timing entries (images, scripts, stylesheets, fonts…)
+  // are kept in their own bounded list so a flood of static assets can't
+  // evict already-captured fetch/xhr/websocket entries; the two lists are
+  // merged when the buffer is read (see collect-devtools.ts).
+  resourceNetwork: NetworkRequest[];
   steps: UserStep[];
+  metadata: Record<string, string>;
 }
 
 const formatArg = (arg: unknown): string => {
@@ -175,6 +187,7 @@ const installFetchHook = (buffer: DevtoolsBuffer): void => {
         responseHeaders: headersToRecord(response.headers),
         status: response.status,
         timestamp: startedAt,
+        type: "fetch",
         url,
       });
       pushBounded(buffer.network, entry);
@@ -208,6 +221,7 @@ const installFetchHook = (buffer: DevtoolsBuffer): void => {
           responseHeaders: null,
           status: 0,
           timestamp: startedAt,
+          type: "fetch",
           url,
         })
       );
@@ -322,6 +336,7 @@ const installXhrHook = (buffer: DevtoolsBuffer): void => {
           responseHeaders: parseHeaderString(this.getAllResponseHeaders()),
           status: this.status,
           timestamp: request.startedAt,
+          type: "xhr",
           url: request.url,
         })
       );
@@ -334,6 +349,194 @@ const installXhrHook = (buffer: DevtoolsBuffer): void => {
   XMLHttpRequest.prototype.send = patchedSend;
 };
 
+/** Wraps `window.WebSocket`; preserves prototype/statics so `instanceof` and `WebSocket.OPEN` keep working on the real socket the native constructor returns. */
+const installWebSocketHook = (buffer: DevtoolsBuffer): void => {
+  const OriginalWebSocket = window.WebSocket;
+
+  const PatchedWebSocket = function PatchedWebSocket(
+    url: string | URL,
+    protocols?: string | string[]
+  ) {
+    const redactedUrl = resolveUrl(String(url));
+    const socket =
+      protocols === undefined
+        ? new OriginalWebSocket(url)
+        : new OriginalWebSocket(url, protocols);
+    let entry: NetworkRequest | null = null;
+    socket.addEventListener("open", () => {
+      entry = {
+        durationMs: 0,
+        method: "WS",
+        status: 101,
+        timestamp: Date.now(),
+        type: "websocket",
+        url: redactedUrl,
+      };
+      pushBounded(buffer.network, entry);
+    });
+    socket.addEventListener("error", () => {
+      if (!entry) {
+        entry = {
+          durationMs: 0,
+          method: "WS",
+          status: 0,
+          timestamp: Date.now(),
+          type: "websocket",
+          url: redactedUrl,
+        };
+        pushBounded(buffer.network, entry);
+      }
+    });
+    socket.addEventListener("close", () => {
+      if (entry) {
+        entry.durationMs = Date.now() - entry.timestamp;
+      }
+    });
+    return socket;
+  };
+  PatchedWebSocket.prototype = OriginalWebSocket.prototype;
+  Object.setPrototypeOf(PatchedWebSocket, OriginalWebSocket);
+  window.WebSocket = PatchedWebSocket as unknown as typeof WebSocket;
+};
+
+const FONT_URL_EXT_REGEX = /\.(?:woff2?|ttf|otf)(?:[?#]|$)/iu;
+const MANIFEST_URL_EXT_REGEX = /\.webmanifest(?:[?#]|$)/iu;
+// fetch/xhr are already captured by their own hooks above.
+const RESOURCE_TIMING_SKIP_INITIATOR_TYPES: Record<string, true> = {
+  beacon: true,
+  fetch: true,
+  xmlhttprequest: true,
+};
+
+const resourceTypeOf = (
+  initiatorType: string,
+  url: string
+): NetworkResourceType => {
+  if (FONT_URL_EXT_REGEX.test(url)) {
+    return "font";
+  }
+  if (MANIFEST_URL_EXT_REGEX.test(url)) {
+    return "manifest";
+  }
+  switch (initiatorType) {
+    case "script": {
+      return "script";
+    }
+    case "link":
+    case "css": {
+      return "stylesheet";
+    }
+    case "img":
+    case "image":
+    case "css-image": {
+      return "image";
+    }
+    case "video":
+    case "audio": {
+      return "media";
+    }
+    case "iframe":
+    case "navigation": {
+      return "document";
+    }
+    default: {
+      return "other";
+    }
+  }
+};
+
+const pushResourceTimingEntry = (
+  buffer: DevtoolsBuffer,
+  initiatorType: string,
+  name: string,
+  startTime: number,
+  duration: number,
+  responseStatus: number | undefined
+): void => {
+  if (RESOURCE_TIMING_SKIP_INITIATOR_TYPES[initiatorType]) {
+    return;
+  }
+  const url = resolveUrl(name);
+  pushBounded(buffer.resourceNetwork, {
+    durationMs: Math.round(duration),
+    method: "GET",
+    status: responseStatus ?? 0,
+    timestamp: Math.round(performance.timeOrigin + startTime),
+    type: resourceTypeOf(initiatorType, url),
+    url,
+  });
+};
+
+/** Static assets (scripts, stylesheets, images, fonts…) via the Resource Timing API; fetch/xhr/websocket are covered by their own hooks. */
+const installResourceTimingHook = (buffer: DevtoolsBuffer): void => {
+  const observer = new PerformanceObserver((list) => {
+    for (const resourceEntry of list.getEntries() as PerformanceResourceTiming[]) {
+      pushResourceTimingEntry(
+        buffer,
+        resourceEntry.initiatorType,
+        resourceEntry.name,
+        resourceEntry.startTime,
+        resourceEntry.duration,
+        (
+          resourceEntry as PerformanceResourceTiming & {
+            responseStatus?: number;
+          }
+        ).responseStatus
+      );
+    }
+  });
+  observer.observe({ buffered: true, type: "resource" });
+
+  // Not covered by the "resource" observer above; pushed once for the
+  // document's single navigation entry.
+  const [navigationEntry] = performance.getEntriesByType(
+    "navigation"
+  ) as PerformanceNavigationTiming[];
+  if (navigationEntry) {
+    pushResourceTimingEntry(
+      buffer,
+      "navigation",
+      navigationEntry.name,
+      navigationEntry.startTime,
+      navigationEntry.duration,
+      (
+        navigationEntry as PerformanceNavigationTiming & {
+          responseStatus?: number;
+        }
+      ).responseStatus
+    );
+  }
+};
+
+/** `window.zam.setMetadata` (MAIN world, non-enumerable): shallow-merges custom key/value context set by the page. */
+const installMetadataHook = (buffer: DevtoolsBuffer): void => {
+  const setMetadata = (input: unknown): void => {
+    if (typeof input !== "object" || input === null) {
+      return;
+    }
+    for (const [key, value] of Object.entries(input)) {
+      const isNewKey = !(key in buffer.metadata);
+      if (
+        isNewKey &&
+        Object.keys(buffer.metadata).length >= MAX_METADATA_ENTRIES
+      ) {
+        continue;
+      }
+      if (key.length < 1 || key.length > MAX_METADATA_KEY_LENGTH) {
+        continue;
+      }
+      const stringValue = typeof value === "string" ? value : String(value);
+      buffer.metadata[key] = stringValue.slice(0, MAX_METADATA_VALUE_LENGTH);
+    }
+  };
+  Object.defineProperty(window, "zam", {
+    configurable: false,
+    enumerable: false,
+    value: Object.freeze({ setMetadata }),
+    writable: false,
+  });
+};
+
 export const installDevtoolsHooks = (): void => {
   const key = Symbol.for(DEVTOOLS_BUFFER_KEY);
   const globalWithBuffer = globalThis as Record<
@@ -343,7 +546,13 @@ export const installDevtoolsHooks = (): void => {
   if (globalWithBuffer[key]) {
     return;
   }
-  const buffer: DevtoolsBuffer = { console: [], network: [], steps: [] };
+  const buffer: DevtoolsBuffer = {
+    console: [],
+    metadata: {},
+    network: [],
+    resourceNetwork: [],
+    steps: [],
+  };
   Object.defineProperty(globalThis, key, {
     configurable: false,
     enumerable: false,
@@ -354,5 +563,8 @@ export const installDevtoolsHooks = (): void => {
   installErrorHooks(buffer);
   installFetchHook(buffer);
   installXhrHook(buffer);
+  installWebSocketHook(buffer);
+  installResourceTimingHook(buffer);
+  installMetadataHook(buffer);
   installStepHooks(buffer.steps);
 };

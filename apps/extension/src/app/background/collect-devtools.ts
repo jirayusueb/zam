@@ -6,10 +6,12 @@ import { DEVTOOLS_BUFFER_KEY } from "@/entities/devtools-log";
 export interface PageBuffer {
   devtools: DevtoolsSnapshot;
   steps: UserStep[];
+  metadata: Record<string, string>;
 }
 
 export const EMPTY_PAGE_BUFFER: PageBuffer = {
   devtools: { console: [], network: [] },
+  metadata: {},
   steps: [],
 };
 
@@ -19,11 +21,18 @@ const readDevtoolsBuffer = (key: string, sinceMs: number, untilMs: number) => {
   const buffer = (
     globalThis as Record<
       symbol,
-      { console: unknown[]; network: unknown[]; steps?: unknown[] } | undefined
+      | {
+          console: unknown[];
+          network: unknown[];
+          resourceNetwork?: unknown[];
+          steps?: unknown[];
+          metadata?: Record<string, string>;
+        }
+      | undefined
     >
   )[Symbol.for(key)];
   if (!buffer) {
-    return { console: [], network: [], steps: [] };
+    return { console: [], metadata: {}, network: [], steps: [] };
   }
   const isDuringRecording = (entry: unknown) => {
     if (typeof entry !== "object" || entry === null) {
@@ -38,7 +47,13 @@ const readDevtoolsBuffer = (key: string, sinceMs: number, untilMs: number) => {
   };
   return {
     console: buffer.console.filter(isDuringRecording),
-    network: buffer.network.filter(isDuringRecording),
+    metadata: buffer.metadata ?? {},
+    // Fetch/xhr/websocket entries and resource-timing entries are kept in
+    // separate bounded buffers so a flood of static assets can't evict
+    // already-captured requests; merged here at read time.
+    network: [...buffer.network, ...(buffer.resourceNetwork ?? [])].filter(
+      isDuringRecording
+    ),
     // Absent in pages whose hooks were installed by an older extension build.
     steps: (buffer.steps ?? []).filter(isDuringRecording),
   };
@@ -75,6 +90,10 @@ export const collectDevtools = async (
         console: result.console,
         network: result.network,
       } as DevtoolsSnapshot,
+      metadata:
+        typeof result.metadata === "object" && result.metadata !== null
+          ? (result.metadata as Record<string, string>)
+          : {},
       steps: result.steps as UserStep[],
     };
   } catch {

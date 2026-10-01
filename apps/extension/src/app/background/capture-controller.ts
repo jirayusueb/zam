@@ -157,7 +157,7 @@ const handleRecorderStopped = async (
     session.status === "recording"
       ? session.startedAt
       : Date.now() - durationMs;
-  const { devtools, steps } = target
+  const { devtools, steps, metadata } = target
     ? await collectDevtools(target.tabId, startedAt, startedAt + durationMs)
     : EMPTY_PAGE_BUFFER;
   const storage = target
@@ -168,6 +168,7 @@ const handleRecorderStopped = async (
   return {
     devtools,
     environment,
+    metadata,
     pageUrl: target?.pageUrl ?? null,
     startedAt,
     steps,

@@ -39,6 +39,7 @@ export const publishReport = async ({
         network: [...context.devtools.network],
       },
       environment: context.environment,
+      metadata: { ...context.metadata },
       pageUrl: context.pageUrl,
       recording: {
         durationMs,

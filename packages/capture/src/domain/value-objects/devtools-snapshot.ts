@@ -21,7 +21,39 @@ export interface ConsoleEntry {
   timestamp: number;
 }
 
+/**
+ * `fetch`/`xhr` come from the fetch/XHR hooks; `websocket` is one entry per
+ * connection (method `WS`, status 101 when opened, 0 when it failed); the rest
+ * come from the browser's resource timing, where status 0 means "not exposed"
+ * (cross-origin without Timing-Allow-Origin), not a failure.
+ */
+export const NETWORK_RESOURCE_TYPES = [
+  "fetch",
+  "xhr",
+  "websocket",
+  "script",
+  "stylesheet",
+  "image",
+  "media",
+  "font",
+  "document",
+  "manifest",
+  "other",
+] as const;
+export type NetworkResourceType = (typeof NETWORK_RESOURCE_TYPES)[number];
+
+/** Types whose status 0 means "unknown" rather than "failed". */
+export const isResourceTimingType = (
+  type: NetworkResourceType | undefined
+): boolean =>
+  type !== undefined &&
+  type !== "fetch" &&
+  type !== "xhr" &&
+  type !== "websocket";
+
 export interface NetworkRequest {
+  /** Absent on reports captured before resource types existed: treat as `fetch`. */
+  type?: NetworkResourceType;
   method: string;
   url: string;
   status: number;
@@ -199,6 +231,13 @@ const networkRequestRules = (request: NetworkRequest): DevtoolsRule[] => [
   {
     holds: () => request.durationMs >= 0,
     violation: () => invalidBugReport("Network durationMs must be >= 0"),
+  },
+  {
+    holds: () =>
+      request.type === undefined ||
+      NETWORK_RESOURCE_TYPES.includes(request.type),
+    violation: () =>
+      invalidBugReport(`Invalid network resource type: ${request.type}`),
   },
   {
     holds: () => Number.isFinite(request.timestamp),
