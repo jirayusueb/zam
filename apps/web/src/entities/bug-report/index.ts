@@ -24,9 +24,18 @@ export {
 } from "./lib/use-report-search";
 export { ApplicationStorage } from "./ui/application-storage";
 export { CopyValueButton } from "./ui/copy-value-button";
-export { BugReportsTable } from "./ui/bug-reports-table";
+export {
+  BugReportsTable,
+  EvidenceChips,
+  ReportTags,
+} from "./ui/bug-reports-table";
 export { PageUrlLink } from "./ui/page-url-link";
 export { ReportInfo } from "./ui/report-info";
 export { ReportPlayback } from "./ui/report-playback";
 export { ReportStatusBadge } from "./ui/report-status-badge";
 export { ReportTimeline } from "./ui/report-timeline";
+export {
+  PriorityMark,
+  TriageStatusGlyph,
+  TriageStatusLabel,
+} from "./ui/triage-marks";
