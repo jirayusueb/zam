@@ -1,19 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { GOOGLE_DRIVE_FILE_SCOPE } from "@zam/auth/scopes";
 import { Button } from "@zam/ui/components/button";
 import { GoogleIcon } from "@zam/ui/components/google-icon";
 import { Skeleton } from "@zam/ui/components/skeleton";
+import { useEffect } from "react";
 
 import { authClient } from "@/shared/api/auth-client";
-
-const CALLBACK_URL = "/connect-drive";
+import { driveAccessPath } from "@/shared/lib/drive-access-path";
 
 /**
  * Re-grants Drive access. Signing in again is not enough: Better Auth only
  * refreshes the stored scopes when the Google account is (re)linked, so this
  * runs `linkSocial` with the Drive scope (consent prompt, fresh refresh token).
  */
-export const ConnectGoogleDrive = () => {
+export const ConnectGoogleDrive = ({ next }: { next?: string }) => {
+  const navigate = useNavigate();
+  // Coming back from Google lands here again, keeping `next`.
+  const callbackURL = next ? driveAccessPath(next) : "/connect-drive";
   const { data: session, isPending } = authClient.useSession();
   const accounts = useQuery({
     enabled: Boolean(session),
@@ -26,6 +30,18 @@ export const ConnectGoogleDrive = () => {
     },
     queryKey: ["auth", "accounts", session?.user.id],
   });
+
+  const google = accounts.data?.find(
+    (account) => account.providerId === "google"
+  );
+  const granted = google?.scopes.includes(GOOGLE_DRIVE_FILE_SCOPE) ?? false;
+
+  // The sign-in check: with access already allowed, continue without a stop.
+  useEffect(() => {
+    if (granted && next) {
+      void navigate({ href: next, replace: true });
+    }
+  }, [granted, navigate, next]);
 
   if (isPending || (session && accounts.isLoading)) {
     return <Skeleton className="h-11 w-64 rounded-full" />;
@@ -40,7 +56,7 @@ export const ConnectGoogleDrive = () => {
         <Button
           onClick={() => {
             void authClient.signIn.social({
-              callbackURL: CALLBACK_URL,
+              callbackURL,
               provider: "google",
             });
           }}
@@ -53,10 +69,13 @@ export const ConnectGoogleDrive = () => {
     );
   }
 
-  const google = accounts.data?.find(
-    (account) => account.providerId === "google"
-  );
-  const granted = google?.scopes.includes(GOOGLE_DRIVE_FILE_SCOPE) ?? false;
+  if (granted && next) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        Google Drive access is allowed. Continuing…
+      </p>
+    );
+  }
 
   if (granted) {
     return (
@@ -84,7 +103,7 @@ export const ConnectGoogleDrive = () => {
       <Button
         onClick={() => {
           void authClient.linkSocial({
-            callbackURL: CALLBACK_URL,
+            callbackURL,
             provider: "google",
             scopes: [GOOGLE_DRIVE_FILE_SCOPE],
           });

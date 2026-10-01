@@ -2,18 +2,14 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { z } from "zod";
 
 import { getViewer } from "@/entities/viewer";
-
-// Same-origin paths only: "//evil.com" and "/\evil.com" are protocol-relative in browsers.
-const SAME_ORIGIN_PATH = /^\/(?![/\\])/u;
+import { isSameOriginPath } from "@/shared/lib/drive-access-path";
 
 const publicSearchSchema = z.object({
   // Anything else is dropped, not rejected, so a tampered link still reaches sign-in.
   redirect: z
     .string()
     .optional()
-    .transform((path) =>
-      path && SAME_ORIGIN_PATH.test(path) ? path : undefined
-    ),
+    .transform((path) => (path && isSameOriginPath(path) ? path : undefined)),
 });
 
 /** Public zone: guests only (sign-in). Signed-in visitors skip ahead to where they were going. */
