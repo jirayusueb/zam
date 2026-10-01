@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.0](https://github.com/jirayusueb/zam/compare/v0.3.0...v0.4.0) (2026-10-01)
+
+### Features
+
+* **capture:** triage filters, priority sort and evidence counts on report list ([b5a5fdf](https://github.com/jirayusueb/zam/commit/b5a5fdf40a153f71259f9fd46f320e11d5b1c7d1))
+* **extension:** evidence-aware recording editor ([57b55df](https://github.com/jirayusueb/zam/commit/57b55df1e6c6d243c6a3cd8b6898d05d69ae70ed))
+* **web:** check google drive access on every sign-in ([661fe73](https://github.com/jirayusueb/zam/commit/661fe736c74433ffeadeae398f40b6a6aca27dbe))
+* **web:** dashboard list and triage board ([b75f658](https://github.com/jirayusueb/zam/commit/b75f658b1509f358b988981cfee73c2896bfc39e))
+* **web:** install guide infographics and browser icons ([2bbc04e](https://github.com/jirayusueb/zam/commit/2bbc04eecff8d50ebdecc27c5bc03f416a04d8d9))
+
+### Bug Fixes
+
+* **extension:** offer drive access and retry when publishing is blocked ([05390c2](https://github.com/jirayusueb/zam/commit/05390c26c7fe298f4d142dea658309e96d236cda))
+* **web:** keep scroll position when report tabs and filters update the url ([dc4d856](https://github.com/jirayusueb/zam/commit/dc4d8562224d4de3f7efd658915a6c28020f48fe))
+* **web:** re-grant google drive access via /connect-drive ([3ff5986](https://github.com/jirayusueb/zam/commit/3ff5986b600b65ad80f846d317a318e88fb63192))
+* **web:** stop page flicker when report tabs and filters change the url ([b621919](https://github.com/jirayusueb/zam/commit/b6219196506c2315d2321b0ee67fc02160de6f16))
+
 ## [0.3.0](https://github.com/jirayusueb/zam/compare/v0.2.0...v0.3.0) (2026-10-01)
 
 ### Features
