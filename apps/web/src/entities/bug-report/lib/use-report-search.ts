@@ -18,5 +18,7 @@ export const useUpdateReportSearch = () => {
       replace: true,
       resetScroll: false,
       search: (previous) => ({ ...previous, ...changes }),
+      // Also needed where the browser lacks view-transition types and ignores the router's per-type opt-out.
+      viewTransition: false,
     });
 };

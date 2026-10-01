@@ -17,8 +17,11 @@ export const getRouter = () => {
     defaultNotFoundComponent: NotFoundPage,
     defaultPendingComponent: () => <Loader />,
     defaultPreloadStaleTime: 0,
-    // Wraps each navigation in document.startViewTransition; animation lives in app/styles/index.css.
-    defaultViewTransition: true,
+    // Wraps page navigations in document.startViewTransition (animation in app/styles/index.css).
+    // Search-only changes (tabs, filters, selections) skip it: fading the whole page on every click flickers.
+    defaultViewTransition: {
+      types: ({ pathChanged }) => (pathChanged ? [] : false),
+    },
     routeTree,
     scrollRestoration: true,
   });

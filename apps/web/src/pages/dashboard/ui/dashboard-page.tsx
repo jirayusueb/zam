@@ -371,6 +371,7 @@ export const DashboardPage = () => {
       replace: true,
       resetScroll: false,
       search: (previous) => ({ ...previous, page: undefined, ...changes }),
+      viewTransition: false,
     });
 
   const clearFilters = () =>
