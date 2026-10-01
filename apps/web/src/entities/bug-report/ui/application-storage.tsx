@@ -12,8 +12,15 @@ import {
   TabsList,
   TabsTrigger,
 } from "@zam/ui/components/tabs";
-import { useState } from "react";
 import type { ReactNode } from "react";
+
+import type { StorageArea } from "../lib/storage-area";
+import {
+  useReportSearch,
+  useUpdateReportSearch,
+} from "../lib/use-report-search";
+
+const STORAGE_TRIGGER = "after:hidden data-active:bg-muted";
 
 const EXPIRES_FORMAT = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
@@ -24,7 +31,7 @@ const SAME_SITE_LABEL: Record<CookieSameSite, string> = {
   lax: "Lax",
   none: "None",
   strict: "Strict",
-  unspecified: "",
+  unspecified: "—",
 };
 
 const COOKIE_COLUMNS =
@@ -65,14 +72,17 @@ const StorageTable = ({
   columns,
   emptyTitle,
   headers,
+  onSelect,
   rows,
+  selectedId,
 }: {
   columns: string;
   emptyTitle: string;
   headers: string[];
+  onSelect: (id: string) => void;
   rows: Row[];
+  selectedId: string | null;
 }) => {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = rows.find((row) => row.id === selectedId);
 
   if (rows.length === 0) {
@@ -103,7 +113,7 @@ const StorageTable = ({
             aria-pressed={row.id === selectedId}
             className={`${columns} hover:bg-muted/50 aria-pressed:bg-muted h-9 w-full border-b text-left font-mono text-xs`}
             key={row.id}
-            onClick={() => setSelectedId(row.id)}
+            onClick={() => onSelect(row.id)}
             type="button"
           >
             {row.cells.map((cell, index) => (
@@ -157,55 +167,84 @@ export const ApplicationStorage = ({
   storage,
 }: {
   storage: StorageSnapshot;
-}) => (
-  <Tabs
-    className="h-full min-w-0 flex-col md:flex-row"
-    defaultValue="cookies"
-    orientation="vertical"
-  >
-    <TabsList className="shrink-0" variant="line">
-      <TabsTrigger value="cookies">
-        Cookies ({storage.cookies.length})
-      </TabsTrigger>
-      <TabsTrigger value="localStorage">
-        Local storage ({storage.localStorage.length})
-      </TabsTrigger>
-      <TabsTrigger value="sessionStorage">
-        Session storage ({storage.sessionStorage.length})
-      </TabsTrigger>
-    </TabsList>
-    <TabsContent className="min-h-0 min-w-0" value="cookies">
-      <StorageTable
-        columns={COOKIE_COLUMNS}
-        emptyTitle="No cookies"
-        headers={[
-          "Name",
-          "Value",
-          "Domain",
-          "Path",
-          "Expires",
-          "HttpOnly",
-          "Secure",
-          "SameSite",
-        ]}
-        rows={cookieRows(storage.cookies)}
-      />
-    </TabsContent>
-    <TabsContent className="min-h-0 min-w-0" value="localStorage">
-      <StorageTable
-        columns={ITEM_COLUMNS}
-        emptyTitle="No local storage"
-        headers={ITEM_HEADERS}
-        rows={itemRows(storage.localStorage)}
-      />
-    </TabsContent>
-    <TabsContent className="min-h-0 min-w-0" value="sessionStorage">
-      <StorageTable
-        columns={ITEM_COLUMNS}
-        emptyTitle="No session storage"
-        headers={ITEM_HEADERS}
-        rows={itemRows(storage.sessionStorage)}
-      />
-    </TabsContent>
-  </Tabs>
-);
+}) => {
+  const search = useReportSearch();
+  const update = useUpdateReportSearch();
+  const area = search.storage ?? "cookies";
+  const selectedId =
+    area === "cookies" ? (search.cookie ?? null) : (search.key ?? null);
+
+  const onAreaChange = (next: string) => {
+    update({
+      cookie: undefined,
+      key: undefined,
+      storage: next === "cookies" ? undefined : (next as StorageArea),
+    });
+  };
+
+  const onSelect = (id: string) => {
+    const next = id === selectedId ? undefined : id;
+    update(area === "cookies" ? { cookie: next } : { key: next });
+  };
+
+  return (
+    <Tabs
+      className="h-full min-w-0 flex-col md:flex-row"
+      onValueChange={onAreaChange}
+      orientation="vertical"
+      value={area}
+    >
+      <TabsList className="shrink-0" variant="line">
+        {/* Nested inside the horizontal devtools Tabs, the line indicator picks up both orientations' group styles and renders as a stray dot; use a fill instead. */}
+        <TabsTrigger className={STORAGE_TRIGGER} value="cookies">
+          Cookies ({storage.cookies.length})
+        </TabsTrigger>
+        <TabsTrigger className={STORAGE_TRIGGER} value="localStorage">
+          Local storage ({storage.localStorage.length})
+        </TabsTrigger>
+        <TabsTrigger className={STORAGE_TRIGGER} value="sessionStorage">
+          Session storage ({storage.sessionStorage.length})
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent className="min-h-0 min-w-0" value="cookies">
+        <StorageTable
+          columns={COOKIE_COLUMNS}
+          emptyTitle="No cookies"
+          headers={[
+            "Name",
+            "Value",
+            "Domain",
+            "Path",
+            "Expires",
+            "HttpOnly",
+            "Secure",
+            "SameSite",
+          ]}
+          onSelect={onSelect}
+          rows={cookieRows(storage.cookies)}
+          selectedId={selectedId}
+        />
+      </TabsContent>
+      <TabsContent className="min-h-0 min-w-0" value="localStorage">
+        <StorageTable
+          columns={ITEM_COLUMNS}
+          emptyTitle="No local storage"
+          headers={ITEM_HEADERS}
+          onSelect={onSelect}
+          rows={itemRows(storage.localStorage)}
+          selectedId={selectedId}
+        />
+      </TabsContent>
+      <TabsContent className="min-h-0 min-w-0" value="sessionStorage">
+        <StorageTable
+          columns={ITEM_COLUMNS}
+          emptyTitle="No session storage"
+          headers={ITEM_HEADERS}
+          onSelect={onSelect}
+          rows={itemRows(storage.sessionStorage)}
+          selectedId={selectedId}
+        />
+      </TabsContent>
+    </Tabs>
+  );
+};

@@ -4,7 +4,6 @@ import { Link } from "@tanstack/react-router";
 import { Button, buttonVariants } from "@zam/ui/components/button";
 import {
   Card,
-  CardAction,
   CardContent,
   CardHeader,
   CardTitle,
@@ -17,6 +16,7 @@ import {
   playOnMount,
   useIconAnimation,
 } from "@zam/ui/hooks/use-icon-animation";
+import { Download } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -26,9 +26,13 @@ import {
   ReportStatusBadge,
   sharedBugReportQuery,
 } from "@/entities/bug-report";
+import { DeleteReportDialog } from "@/features/delete-report";
+import { EditReportDetails, EditReportSummary } from "@/features/edit-report";
 import { ReportComments } from "@/widgets/report-comments";
 import { ReportDevtools } from "@/widgets/report-devtools";
 import { RouteFallback } from "@/widgets/route-fallback";
+
+import { downloadReportJson } from "../lib/download-report-json";
 
 const PAGE = "mx-auto w-full max-w-[1520px] px-5 pt-6 pb-16 md:px-10";
 const GRID = "grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_380px]";
@@ -48,21 +52,33 @@ const CopyLinkButton = () => {
   };
 
   return (
-    <Button
-      className="w-full"
-      onClick={copyLink}
-      variant="outline"
-      {...linkTrigger}
-    >
+    <Button onClick={copyLink} size="sm" variant="outline" {...linkTrigger}>
       {copied ? (
         <CheckIcon aria-hidden ref={playOnMount} />
       ) : (
         <LinkIcon aria-hidden ref={linkRef} />
       )}
-      {copied ? "Copied" : "Copy share link"}
+      {copied ? "Copied" : "Copy link"}
     </Button>
   );
 };
+
+const DownloadReportButton = ({
+  data,
+  reportId,
+}: {
+  data: unknown;
+  reportId: string;
+}) => (
+  <Button
+    onClick={() => downloadReportJson(data, `zam-report-${reportId}.json`)}
+    size="sm"
+    variant="outline"
+  >
+    <Download aria-hidden />
+    Download
+  </Button>
+);
 
 export const SharedReportPage = ({ reportId }: { reportId: string }) => {
   const { data, error, isLoading } = useQuery(sharedBugReportQuery(reportId));
@@ -123,12 +139,15 @@ export const SharedReportPage = ({ reportId }: { reportId: string }) => {
               }
               title={data.title}
             />
-            <div className="h-[520px] overflow-hidden rounded-2xl border">
+            <div className="h-[560px] overflow-hidden rounded-2xl border">
               <ReportDevtools
+                canEdit={data.canEdit}
                 devtools={devtools}
                 environment={environment}
+                metadata={data.metadata}
                 pageUrl={data.pageUrl}
                 recording={recording}
+                reportId={data.reportId}
                 steps={steps}
                 storage={storage}
               />
@@ -136,15 +155,18 @@ export const SharedReportPage = ({ reportId }: { reportId: string }) => {
           </div>
           <div className="flex min-w-0 flex-col gap-4">
             <Card>
-              <CardHeader>
-                <CardAction>
-                  <ReportStatusBadge status={data.status} />
-                </CardAction>
-                <CardTitle className="font-display text-headline text-balance break-words">
-                  {data.title}
-                </CardTitle>
-              </CardHeader>
               <CardContent className="flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <EditReportSummary
+                      canEdit={data.canEdit}
+                      description={data.description}
+                      reportId={data.reportId}
+                      title={data.title}
+                    />
+                  </div>
+                  <ReportStatusBadge status={data.status} />
+                </div>
                 {data.pageUrl ? <PageUrlLink href={data.pageUrl} /> : null}
                 <dl className="text-muted-foreground grid grid-cols-[5rem_1fr] gap-y-1.5 text-xs">
                   <dt>Created</dt>
@@ -156,34 +178,25 @@ export const SharedReportPage = ({ reportId }: { reportId: string }) => {
                     {formatOffset(recording.durationMs)}
                   </dd>
                 </dl>
-                <CopyLinkButton />
+                <div className="flex flex-wrap gap-2">
+                  <CopyLinkButton />
+                  <DownloadReportButton data={data} reportId={data.reportId} />
+                  {data.canEdit ? (
+                    <DeleteReportDialog reportId={data.reportId} />
+                  ) : null}
+                </div>
               </CardContent>
             </Card>
             <Card>
               <CardHeader>
                 <CardTitle>Details</CardTitle>
               </CardHeader>
-              <CardContent className="flex flex-col gap-1.5 text-sm">
-                {environment ? (
-                  <>
-                    <p>
-                      <span className="text-muted-foreground">Browser </span>
-                      {environment.browser}
-                    </p>
-                    <p>
-                      <span className="text-muted-foreground">OS </span>
-                      {environment.os}
-                    </p>
-                    <p>
-                      <span className="text-muted-foreground">Screen </span>
-                      {environment.screen.width} × {environment.screen.height}
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-muted-foreground text-xs italic">
-                    Environment wasn&apos;t captured for this report.
-                  </p>
-                )}
+              <CardContent>
+                <EditReportDetails
+                  canEdit={data.canEdit}
+                  reportId={data.reportId}
+                  triage={data.triage}
+                />
               </CardContent>
             </Card>
             <ReportComments reportId={data.reportId} />

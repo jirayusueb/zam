@@ -11,7 +11,7 @@ import {
   Navigation,
   WifiOff,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import { formatOffset } from "../lib/format-offset";
 import { statusLabel } from "../lib/network-request-format";
@@ -22,6 +22,10 @@ import {
   STEP_FILTERS,
   timelineRows,
 } from "../lib/report-steps";
+import {
+  useReportSearch,
+  useUpdateReportSearch,
+} from "../lib/use-report-search";
 import { useReportPlayback } from "../model/report-playback-context";
 
 const rowIcon = (row: TimelineRow) => {
@@ -49,7 +53,7 @@ const rowLabel = (row: TimelineRow): string => {
     return "Screen recording start";
   }
   if (row.kind === "networkError" && row.request) {
-    return `${row.request.method} ${statusLabel(row.request.status)} ${row.request.url}`;
+    return `${row.request.method} ${statusLabel(row.request.status, row.request.type)} ${row.request.url}`;
   }
   if (row.kind === "visibility" && row.step) {
     return row.step.detail === "hidden"
@@ -69,7 +73,9 @@ export const ReportStepsTable = ({
 }) => {
   const { playheadMs, seek, startedAt } = useReportPlayback();
   const startedAtMs = startedAt.getTime();
-  const [filter, setFilter] = useState<StepFilter>("all");
+  const search = useReportSearch();
+  const update = useUpdateReportSearch();
+  const filter = search.steps ?? "all";
   const rows = useMemo(
     () => timelineRows(steps, network, startedAt),
     [steps, network, startedAt]
@@ -95,7 +101,9 @@ export const ReportStepsTable = ({
           onValueChange={(next) => {
             const [value] = next;
             if (value) {
-              setFilter(value as StepFilter);
+              update({
+                steps: value === "all" ? undefined : (value as StepFilter),
+              });
             }
           }}
           value={[filter]}
@@ -143,7 +151,7 @@ export const ReportStepsTable = ({
                   </span>
                   {row.kind === "networkError" && row.request ? (
                     <Badge variant="destructive">
-                      {statusLabel(row.request.status)}
+                      {statusLabel(row.request.status, row.request.type)}
                     </Badge>
                   ) : null}
                 </button>

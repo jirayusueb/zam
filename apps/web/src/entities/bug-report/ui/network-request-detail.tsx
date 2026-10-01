@@ -13,7 +13,9 @@ import { toast } from "sonner";
 
 import { buildCurl } from "../lib/build-curl";
 import { formatOffset } from "../lib/format-offset";
-import { isErrorStatus, statusLabel } from "../lib/network-request-format";
+import { isFailedRequest } from "../lib/is-failed-request";
+import type { NetworkDetailTab } from "../lib/network-detail";
+import { statusLabel } from "../lib/network-request-format";
 import { JsonValue } from "./json-value";
 
 const FieldEmpty = ({ label }: { label: string }) => (
@@ -120,11 +122,15 @@ const CopyCurlButton = ({ request }: { request: NetworkRequest }) => {
 
 /** Chrome DevTools-style request detail: Headers, Payload and Response tabs, inline next to the list on wide screens. */
 export const NetworkRequestDetail = ({
+  detail,
   onClose,
+  onDetailChange,
   request,
   startedAtMs,
 }: {
+  detail: NetworkDetailTab;
   onClose: () => void;
+  onDetailChange: (tab: NetworkDetailTab) => void;
   request: NetworkRequest;
   startedAtMs: number;
 }) => (
@@ -146,7 +152,11 @@ export const NetworkRequestDetail = ({
         </Button>
       </div>
     </div>
-    <Tabs className="min-h-0 flex-1" defaultValue="headers">
+    <Tabs
+      className="min-h-0 flex-1"
+      onValueChange={(value) => onDetailChange(value as NetworkDetailTab)}
+      value={detail}
+    >
       <TabsList className="mx-4 mt-2 w-fit">
         <TabsTrigger value="headers">Headers</TabsTrigger>
         <TabsTrigger value="payload">Payload</TabsTrigger>
@@ -162,12 +172,10 @@ export const NetworkRequestDetail = ({
               value={
                 <span
                   className={
-                    isErrorStatus(request.status)
-                      ? "text-destructive"
-                      : undefined
+                    isFailedRequest(request) ? "text-destructive" : undefined
                   }
                 >
-                  {statusLabel(request.status)}
+                  {statusLabel(request.status, request.type)}
                 </span>
               }
             />

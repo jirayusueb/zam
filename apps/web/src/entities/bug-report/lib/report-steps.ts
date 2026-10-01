@@ -3,12 +3,18 @@ import type { UserStep } from "@zam/capture/domain/value-objects/user-step";
 
 import { isFailedRequest } from "./is-failed-request";
 
-export type StepFilter = "all" | "navigation" | "networkError" | "activity";
+export const STEP_FILTER_VALUES = [
+  "all",
+  "navigation",
+  "network",
+  "activity",
+] as const;
+export type StepFilter = (typeof STEP_FILTER_VALUES)[number];
 
 export const STEP_FILTERS: readonly { label: string; value: StepFilter }[] = [
   { label: "All", value: "all" },
   { label: "Page navigation", value: "navigation" },
-  { label: "Network errors", value: "networkError" },
+  { label: "Network errors", value: "network" },
   { label: "User activities", value: "activity" },
 ];
 
@@ -61,7 +67,7 @@ export const matchesStepFilter = (
   if (filter === "navigation") {
     return row.kind === "navigation";
   }
-  if (filter === "networkError") {
+  if (filter === "network") {
     return row.kind === "networkError";
   }
   return row.kind === "click" || row.kind === "visibility";
@@ -75,13 +81,13 @@ export const countByStepFilter = (
     activity: 0,
     all: rows.length,
     navigation: 0,
-    networkError: 0,
+    network: 0,
   };
   for (const row of rows) {
     if (row.kind === "navigation") {
       counts.navigation += 1;
     } else if (row.kind === "networkError") {
-      counts.networkError += 1;
+      counts.network += 1;
     } else if (row.kind === "click" || row.kind === "visibility") {
       counts.activity += 1;
     }

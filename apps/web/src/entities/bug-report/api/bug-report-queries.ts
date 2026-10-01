@@ -14,3 +14,9 @@ export const myBugReportsQuery = (
 
 export const sharedBugReportQuery = (reportId: string) =>
   orpc.bugReport.getShared.queryOptions({ input: { reportId } });
+
+export const reportActivitiesQuery = (reportId: string) =>
+  orpc.bugReport.listActivities.queryOptions({ input: { reportId } });
+
+export const reportParticipantsQuery = (reportId: string) =>
+  orpc.bugReport.listParticipants.queryOptions({ input: { reportId } });

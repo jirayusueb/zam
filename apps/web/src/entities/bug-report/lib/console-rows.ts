@@ -5,14 +5,16 @@ import type {
 
 import { isFailedRequest } from "./is-failed-request";
 
-export type ConsoleFilter =
-  | "all"
-  | "info"
-  | "warn"
-  | "log"
-  | "error"
-  | "debug"
-  | "networkError";
+export const CONSOLE_FILTER_VALUES = [
+  "all",
+  "info",
+  "warn",
+  "log",
+  "error",
+  "debug",
+  "network",
+] as const;
+export type ConsoleFilter = (typeof CONSOLE_FILTER_VALUES)[number];
 
 export const CONSOLE_FILTERS: readonly {
   label: string;
@@ -24,8 +26,8 @@ export const CONSOLE_FILTERS: readonly {
   { label: "Log", value: "log" },
   { label: "Error", value: "error" },
   { label: "Debug", value: "debug" },
-  { label: "Network errors", value: "networkError" },
-] as const;
+  { label: "Network", value: "network" },
+];
 
 /** One console-panel row: a logged message, or a failed network request shown Chrome-console style. */
 export interface ConsoleRow {
@@ -59,7 +61,7 @@ export const matchesConsoleFilter = (
   if (filter === "all") {
     return true;
   }
-  if (filter === "networkError") {
+  if (filter === "network") {
     return row.request !== null;
   }
   return row.entry?.level === filter;
@@ -75,12 +77,12 @@ export const countByFilter = (
     error: 0,
     info: 0,
     log: 0,
-    networkError: 0,
+    network: 0,
     warn: 0,
   };
   for (const row of rows) {
     if (row.request) {
-      counts.networkError += 1;
+      counts.network += 1;
     } else if (row.entry?.level === "error") {
       counts.error += 1;
     } else if (row.entry?.level === "warn") {
