@@ -1,5 +1,9 @@
 import type { CaptureDomainError } from "../../domain/capture-domain-error";
 import { parseReporterId } from "../../domain/value-objects/reporter-id";
+import type {
+  ReportPriority,
+  ReportStatus,
+} from "../../domain/value-objects/triage";
 import { and, not } from "../../shared/query-specification";
 import { ok } from "../../shared/result";
 import type { Result } from "../../shared/result";
@@ -25,6 +29,8 @@ export interface ListMyBugReportsInput {
   reporterId: string;
   query?: string;
   status?: BugReportSummary["status"];
+  triageStatus?: ReportStatus;
+  priority?: ReportPriority;
   /** Defaults to "relevance" with a query, else "newest". */
   sort?: BugReportSort;
   /** 1-based. */
@@ -68,6 +74,12 @@ export const createListMyBugReports =
     }
     if (text) {
       filters.push({ kind: "matchesText", text });
+    }
+    if (input.triageStatus) {
+      filters.push({ kind: "triageStatus", status: input.triageStatus });
+    }
+    if (input.priority) {
+      filters.push({ kind: "priority", priority: input.priority });
     }
     const page = Math.max(1, input.page ?? 1);
     const pageSize = Math.min(

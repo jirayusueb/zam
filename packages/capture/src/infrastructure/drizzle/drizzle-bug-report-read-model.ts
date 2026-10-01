@@ -48,6 +48,12 @@ const criterionToSql = (criterion: BugReportCriterion): SQL => {
     case "matchesText": {
       return sql`${bugReport.searchTsv} @@ websearch_to_tsquery(${TEXT_SEARCH_CONFIG}, ${criterion.text})`;
     }
+    case "triageStatus": {
+      return eq(bugReport.triageStatus, criterion.status);
+    }
+    case "priority": {
+      return eq(bugReport.triagePriority, criterion.priority);
+    }
     default: {
       throw new Error("unknown bug report criterion");
     }
@@ -61,6 +67,14 @@ const criteriaToSql = (criteria: BugReportCriteria): SQL =>
     not: (part) => not(part),
     or: (parts) => or(...parts) ?? not(MATCH_ALL),
   });
+
+// Most urgent first; mirrors REPORT_PRIORITIES (unknown values sort last).
+const PRIORITY_RANK = sql`case ${bugReport.triagePriority} when 'urgent' then 0 when 'high' then 1 when 'medium' then 2 when 'low' then 3 else 4 end`;
+
+// Counted in SQL so the list never loads the jsonb arrays. Must match the web's
+// isFailedRequest: status 0 is a failure only for fetch/xhr/websocket (or legacy rows without a type).
+const ERROR_COUNT = sql<number>`(select count(*)::int from jsonb_array_elements(${bugReport.consoleEntries}) e where e->>'level' = 'error')`;
+const FAILED_REQUEST_COUNT = sql<number>`(select count(*)::int from jsonb_array_elements(${bugReport.networkRequests}) r where (r->>'status')::int >= 400 or ((r->>'status')::int = 0 and coalesce(r->>'type', 'fetch') in ('fetch', 'xhr', 'websocket')))`;
 
 const orderBy = (order: BugReportOrder): SQL[] => {
   // id tiebreaker keeps offset pagination stable across equal keys.
@@ -78,6 +92,9 @@ const orderBy = (order: BugReportOrder): SQL[] => {
     }
     case "title": {
       return [asc(sql`lower(${bugReport.title})`), ...newest];
+    }
+    case "priority": {
+      return [PRIORITY_RANK, ...newest];
     }
     default: {
       return newest;
@@ -122,9 +139,14 @@ export const createDrizzleBugReportReadModel = (
       db
         .select({
           createdAt: bugReport.createdAt,
+          errorCount: ERROR_COUNT,
+          failedRequestCount: FAILED_REQUEST_COUNT,
           id: bugReport.id,
           pageUrl: bugReport.pageUrl,
+          tags: bugReport.tags,
           title: bugReport.title,
+          triagePriority: bugReport.triagePriority,
+          triageStatus: bugReport.triageStatus,
           videoDurationMs: bugReport.videoDurationMs,
           videoFileId: bugReport.videoFileId,
         })

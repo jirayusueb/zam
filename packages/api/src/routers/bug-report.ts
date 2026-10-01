@@ -238,9 +238,11 @@ export const bugReportRouter = {
       z.object({
         page: z.int().min(1).optional(),
         pageSize: z.int().min(1).max(MAX_PAGE_SIZE).optional(),
+        priority: z.enum(REPORT_PRIORITIES).optional(),
         query: z.string().max(MAX_SEARCH_QUERY_LENGTH).optional(),
         sort: z.enum(BUG_REPORT_SORTS).optional(),
         status: z.enum(["draft", "published"]).optional(),
+        triageStatus: z.enum(REPORT_STATUSES).optional(),
       })
     )
     .handler(async ({ context, input }) =>

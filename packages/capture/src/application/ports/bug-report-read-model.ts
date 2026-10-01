@@ -17,6 +17,11 @@ export interface BugReportSummary {
   status: BugReportStatus;
   durationMs: number;
   createdAt: Date;
+  triage: Pick<Triage, "status" | "priority" | "tags">;
+  /** Console entries at level `error`: evidence shown on the list without loading the report. */
+  errorCount: number;
+  /** Network requests that failed or answered 4xx/5xx (resource-timing status 0 excluded). */
+  failedRequestCount: number;
 }
 
 export interface BugReportSummaryPage {

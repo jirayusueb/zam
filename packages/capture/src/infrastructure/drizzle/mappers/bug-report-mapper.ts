@@ -22,8 +22,16 @@ type BugReportRow = typeof bugReport.$inferSelect;
 
 export type BugReportSummaryRow = Pick<
   BugReportRow,
-  "createdAt" | "id" | "pageUrl" | "title" | "videoDurationMs" | "videoFileId"
->;
+  | "createdAt"
+  | "id"
+  | "pageUrl"
+  | "tags"
+  | "title"
+  | "triagePriority"
+  | "triageStatus"
+  | "videoDurationMs"
+  | "videoFileId"
+> & { errorCount: number; failedRequestCount: number };
 
 const statusOf = (videoFileId: string | null): BugReportStatus =>
   videoFileId === null ? "draft" : "published";
@@ -117,9 +125,16 @@ export const bugReportMapper = {
   toSummary: (row: BugReportSummaryRow): BugReportSummary => ({
     createdAt: row.createdAt,
     durationMs: row.videoDurationMs,
+    errorCount: row.errorCount,
+    failedRequestCount: row.failedRequestCount,
     id: unwrap(parseReportId(row.id)),
     pageUrl: row.pageUrl,
     status: statusOf(row.videoFileId),
     title: row.title,
+    triage: {
+      priority: row.triagePriority as ReportPriority,
+      status: row.triageStatus as ReportStatus,
+      tags: row.tags,
+    },
   }),
 };
